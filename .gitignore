@@ -1,0 +1,21 @@
+# Python virtual env
+.venv
+**/__pycache__
+
+# RiscV general doc
+riscv_doc
+
+# Bench artefacts
+src/bench/*.wlf
+src/bench/wave.do
+src/bench/transcript
+src/bench/tcl_stacktrace.txt
+src/bench/modelsim.ini
+src/bench/results.xml
+src/bench/vish_stacktrace.vstf
+
+# Build artefacts
+**/sim_build
+**/*.o
+**/*.elf
+**/*.bin

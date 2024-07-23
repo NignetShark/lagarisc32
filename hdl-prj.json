@@ -1,0 +1,21 @@
+{
+    "options": {
+        "ghdl_analysis": [
+            "--workdir=work",
+            "--ieee=synopsys",
+            "-fexplicit"
+        ]
+    },
+    "files": [
+        { "file": "src/hdl/pkg_lagarisc.vhd",           "language": "vhdl", "library":"lagarisc"},
+        { "file": "src/hdl/lagarisc_fetch_bram.vhd",    "language": "vhdl", "library":"lagarisc"},
+        { "file": "src/hdl/lagarisc_decode.vhd",        "language": "vhdl", "library":"lagarisc"},
+        { "file": "src/hdl/lagarisc_regfile.vhd",       "language": "vhdl", "library":"lagarisc"},
+        { "file": "src/hdl/lagarisc_alu.vhd",           "language": "vhdl", "library":"lagarisc"},
+        { "file": "src/hdl/lagarisc_stage_decode.vhd",  "language": "vhdl", "library":"lagarisc"},
+        { "file": "src/hdl/lagarisc_stage_exec.vhd",    "language": "vhdl", "library":"lagarisc"},
+        { "file": "src/hdl/lagarisc_stage_mem.vhd",     "language": "vhdl", "library":"lagarisc"},
+        { "file": "src/hdl/lagarisc_stage_wb.vhd",      "language": "vhdl", "library":"lagarisc"},
+        { "file": "src/hdl/lagarisc_supervisor.vhd",    "language": "vhdl", "library":"lagarisc"}
+    ]
+}
