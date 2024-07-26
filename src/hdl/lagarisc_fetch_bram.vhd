@@ -7,17 +7,20 @@ use lagarisc.pkg_lagarisc.all;
 
 entity lagarisc_fetch_bram is
     generic (
-        G_BOOT_ADDR     : std_logic_vector(31 downto 0) := x"00000000";
-        G_BRAM_LATENCY  : positive                      := 1
+        G_BRAM_LATENCY  : positive  := 1
     );
     port (
         CLK                         : in std_logic;
         RST                         : in std_logic;
 
         -- ==== Control & command ====
-        STAGE_READY                 : out std_logic;
         FLUSH                       : in  std_logic;
         STALL                       : in  std_logic;
+
+        MEM_BRANCH_OUT_VALID        : in std_logic;
+        FETCH_IN_READY              : out std_logic;
+        FETCH_OUT_VALID             : out std_logic;
+        DECODE_IN_READY             : in std_logic;
 
         -- ==== BRAM interface ====
         BRAM_EN                     : out  std_logic;
@@ -29,11 +32,10 @@ entity lagarisc_fetch_bram is
 
         -- ==== DECODE > ====
         DC_INST_DATA                : out  std_logic_vector(31 downto 0);
-        DC_INST_VALID               : out  std_logic;
 
-        -- === > MEMORY stage ===
-        MEM_BRANCH_TAKEN            : in std_logic;
-        MEM_PC_TAKEN                : in std_logic_vector(31 downto 0)
+        -- === > SUPERVISOR ===
+        SUP_BRANCH_TAKEN            : in std_logic;
+        SUP_PC_TAKEN                : in std_logic_vector(31 downto 0)
     );
 end entity;
 
@@ -44,70 +46,86 @@ architecture rtl of lagarisc_fetch_bram is
     type pc_pipeline_t is array(0 to G_BRAM_LATENCY - 1) of std_logic_vector(31 downto 0);
     signal pc_pipeline : pc_pipeline_t;
 
-    signal fetch_en     : std_logic;
-    signal inst_valid   : std_logic;
-    signal last_bram_dout : std_logic_vector(31 downto 0);
+    signal fetch_out_valid_int  : std_logic;
+    signal fetch_in_ready_int   : std_logic;
+
+    signal fetch_en             : std_logic;
+    signal last_bram_dout       : std_logic_vector(31 downto 0);
+
+    signal use_last : std_logic;
 begin
-    -- Internal signals
-    inst_valid   <= fetch_validity_pipeline(G_BRAM_LATENCY - 1);
-    fetch_en     <= not STALL;
+    -- Control & cmd
+    fetch_out_valid_int      <= fetch_validity_pipeline(G_BRAM_LATENCY - 1);
+    fetch_in_ready_int       <= DECODE_IN_READY or not(fetch_out_valid_int);
+    fetch_en                 <= fetch_in_ready_int and MEM_BRANCH_OUT_VALID;
 
     -- Output signals
-    STAGE_READY             <= '1';
-
     BRAM_ADDR               <= program_counter;
-    BRAM_EN                 <= fetch_en;
+    BRAM_EN                 <= fetch_en and (not FLUSH);
 
     DC_EXEC_PROGRAM_COUNTER  <= pc_pipeline(G_BRAM_LATENCY - 1);
-    DC_INST_DATA             <= last_bram_dout when STALL = '1' else BRAM_DOUT;
-    DC_INST_VALID            <= inst_valid;
+    DC_INST_DATA             <= last_bram_dout when use_last = '1' else BRAM_DOUT;
+
+    FETCH_IN_READY           <= fetch_in_ready_int;
+    FETCH_OUT_VALID          <= fetch_out_valid_int;
 
     process(CLK)
     begin
         if rising_edge(CLK) then
             if RST = '1' then
-                program_counter <= G_BOOT_ADDR;
+                use_last <= '0';
+                program_counter <= (others => '0');
                 fetch_validity_pipeline <= (others => '0');
                 pc_pipeline <= (others => (others => '0'));
                 last_bram_dout <= (others => '0');
             else
 
+
                 if STALL = '1' then
                     -- Fetch is stalled, the last intruction must be yield
                     -- during this event.
                     null;
-                else
-                    last_bram_dout <= BRAM_DOUT;
+                    -------------------------------------------------
+                    -- Compute instruction validity from BRAM latency
+                    -------------------------------------------------
+                elsif fetch_en = '1' then
+                    use_last       <= '0';
 
                     -------------------------------------------------
                     -- PC: Update to next address
                     -------------------------------------------------
-                    if MEM_BRANCH_TAKEN = '1' then
+                    if SUP_BRANCH_TAKEN = '1' then
                         -- taken : PC = branch address
-                        program_counter <= MEM_PC_TAKEN;
+                        program_counter <= SUP_PC_TAKEN;
                     else
                         -- not taken : PC += 4
                         program_counter <= std_logic_vector(unsigned(program_counter) + to_unsigned(4, 32));
                     end if;
 
                     -------------------------------------------------
-                    -- Compute instruction validity from BRAM latency
+                    -- Update validity pipeline
                     -------------------------------------------------
-                    if FLUSH = '1' then
-                        fetch_validity_pipeline <= (others => '0');
-                    else
-                        fetch_validity_pipeline(0) <= '1';
+                    fetch_validity_pipeline(0) <= '1';
 
-                        pc_pipeline(0)             <= program_counter;
-                        for i in 1 to G_BRAM_LATENCY - 1 loop
-                            fetch_validity_pipeline(i)  <= fetch_validity_pipeline(i - 1);
-                            pc_pipeline(i)              <= pc_pipeline(i - 1);
-                        end loop;
+                    pc_pipeline(0)             <= program_counter;
+                    for i in 1 to G_BRAM_LATENCY - 1 loop
+                        fetch_validity_pipeline(i)  <= fetch_validity_pipeline(i - 1);
+                        pc_pipeline(i)              <= pc_pipeline(i - 1);
+                    end loop;
+                else
+                    if use_last /= '1' then
+                        -- Save last bram dout (used to maintain output until consumption)
+                        last_bram_dout <= BRAM_DOUT;
                     end if;
+                    use_last <= '1';
+                end if; -- STALL
 
-                end if;
+                if FLUSH = '1' then
+                    -- Clear validity pipeline
+                    fetch_validity_pipeline <= (others => '0');
+                end if; -- FLUSH
 
-            end if;
-        end if;
+            end if; -- RST
+        end if; -- CLK
     end process;
 end architecture;

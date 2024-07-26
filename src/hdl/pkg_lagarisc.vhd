@@ -88,33 +88,26 @@ package pkg_lagarisc is
     -- SUPERVISOR
     -----------------------------------------------------
     component lagarisc_supervisor is
+        generic(
+            G_BOOT_ADDR     : std_logic_vector(31 downto 0) := x"00000000"
+        );
         port (
             CLK   : in std_logic;
             RST   : in std_logic;
 
-            -- Ready
-            FETCH_READY         : in std_logic;
-            EXEC_READY          : in std_logic;
-            MEM_READY           : in std_logic;
-
-            -- Validity
-            EXEC_INST_VALID     : in std_logic;
-            MEM_INST_VALID      : in std_logic;
-
-            -- Branch taken ?
+            -- ==== > MEM ====
             MEM_BRANCH_TAKEN    : in std_logic;
+            MEM_PC_TAKEN        : in std_logic_vector(31 downto 0);
 
-            -- Flush
+            -- ==== > FETCH ====
+            FETCH_BRANCH_TAKEN  : out std_logic;
+            FETCH_PC_TAKEN      : out std_logic_vector(31 downto 0);
+
+            -- ==== Flush ====
             FETCH_FLUSH         : out std_logic;
             DECODE_FLUSH        : out std_logic;
             EXEC_FLUSH          : out std_logic;
-            MEM_FLUSH           : out std_logic;
-
-            -- Stall
-            FETCH_STALL         : out std_logic;
-            DECODE_STALL        : out std_logic;
-            EXEC_STALL          : out std_logic;
-            MEM_STALL           : out std_logic
+            MEM_FLUSH           : out std_logic
         );
     end component;
 
@@ -123,17 +116,20 @@ package pkg_lagarisc is
     -----------------------------------------------------
     component lagarisc_fetch_bram is
         generic (
-            G_BOOT_ADDR     : std_logic_vector(31 downto 0) := x"00000000";
-            G_BRAM_LATENCY  : positive                      := 1
+            G_BRAM_LATENCY  : positive  := 1
         );
         port (
             CLK                         : in std_logic;
             RST                         : in std_logic;
 
             -- ==== Control & command ====
-            STAGE_READY                 : out std_logic;
             FLUSH                       : in  std_logic;
             STALL                       : in  std_logic;
+
+            MEM_BRANCH_OUT_VALID        : in std_logic;
+            FETCH_IN_READY              : out std_logic;
+            FETCH_OUT_VALID             : out std_logic;
+            DECODE_IN_READY             : in std_logic;
 
             -- ==== BRAM interface ====
             BRAM_EN                     : out  std_logic;
@@ -145,11 +141,10 @@ package pkg_lagarisc is
 
             -- ==== DECODE > ====
             DC_INST_DATA                : out  std_logic_vector(31 downto 0);
-            DC_INST_VALID               : out  std_logic;
 
-            -- === > MEMORY stage ===
-            MEM_BRANCH_TAKEN            : in std_logic;
-            MEM_PC_TAKEN                : in std_logic_vector(31 downto 0)
+            -- === > SUPERVISOR ===
+            SUP_BRANCH_TAKEN            : in std_logic;
+            SUP_PC_TAKEN                : in std_logic_vector(31 downto 0)
         );
     end component;
 
@@ -158,13 +153,19 @@ package pkg_lagarisc is
             CLK                     : in std_logic;
             RST                     : in std_logic;
 
+            -- ==== Control & command ====
             FLUSH                   : in std_logic;
             STALL                   : in std_logic;
+
+            -- Valid & ready
+            FETCH_OUT_VALID         : in std_logic;
+            DECODE_IN_READY         : out std_logic;
+            DECODE_OUT_VALID        : out std_logic;
+            EXEC_IN_READY           : in std_logic;
 
             -- ==== > FETCH ====
             FETCH_PROGRAM_COUNTER   : in  std_logic_vector(31 downto 0);
             FETCH_INST_DATA         : in  std_logic_vector(31 downto 0);
-            FETCH_INST_VALID        : in  std_logic;
 
             -- ==== EXEC > ====
             -- PC
@@ -175,7 +176,6 @@ package pkg_lagarisc is
             -- INST FX
             EXEC_INST_F3            : out std_logic_vector(2 downto 0);
             EXEC_INST_F7            : out std_logic_vector(6 downto 0);
-            EXEC_INST_VALID         : out std_logic;
             -- RSX
             EXEC_RS1_ID             : out std_logic_vector(4 downto 0);
             EXEC_RS2_ID             : out std_logic_vector(4 downto 0);
@@ -208,9 +208,14 @@ package pkg_lagarisc is
             CLK                     : in std_logic;
             RST                     : in std_logic;
 
-            STAGE_READY             : out std_logic;
+            -- ==== Control & command ====
             FLUSH                   : in std_logic;
             STALL                   : in std_logic;
+
+            DECODE_OUT_VALID        : in std_logic;
+            EXEC_IN_READY           : out std_logic;
+            EXEC_OUT_VALID          : out std_logic;
+            MEM_IN_READY            : in std_logic;
 
             -- ==== > FETCH ====
             FETCH_PROGRAM_COUNTER   : in std_logic_vector(31 downto 0);
@@ -224,7 +229,6 @@ package pkg_lagarisc is
             -- INST
             DC_INST_F3              : in std_logic_vector(2 downto 0);
             DC_INST_F7              : in std_logic_vector(6 downto 0);
-            DC_INST_VALID           : in std_logic;
             -- RSX
             DC_RS1_ID               : in std_logic_vector(4 downto 0);
             DC_RS2_ID               : in std_logic_vector(4 downto 0);
@@ -252,7 +256,6 @@ package pkg_lagarisc is
             MEM_BRANCH_OP           : out branch_op_t;
             -- INST
             MEM_INST_F3             : out std_logic_vector(2 downto 0);
-            MEM_INST_VALID          : out std_logic;
             -- RD
             MEM_RD_ID               : out std_logic_vector(4 downto 0);
             MEM_RD_WE               : out std_logic;
@@ -284,9 +287,12 @@ package pkg_lagarisc is
             CLK                     : in std_logic;
             RST                     : in std_logic;
 
-            STAGE_READY             : out std_logic;
+            -- ==== Control & command ====
             FLUSH                   : in std_logic;
             STALL                   : in std_logic;
+
+            EXEC_OUT_VALID          : in std_logic;
+            MEM_IN_READY            : out std_logic;
 
             -- ==== > EXEC ====
             -- PC
@@ -295,7 +301,6 @@ package pkg_lagarisc is
             EXEC_BRANCH_OP             : in branch_op_t;
             -- INST
             EXEC_INST_F3            : in std_logic_vector(2 downto 0);
-            EXEC_INST_VALID         : in std_logic;
             -- RD
             EXEC_RD_ID              : in std_logic_vector(4 downto 0);
             EXEC_RD_WE              : in std_logic;
@@ -308,11 +313,6 @@ package pkg_lagarisc is
             -- WB MUX
             EXEC_WB_MUX             : in mux_wb_src_t;
 
-            -- ==== FETCH > ====
-            -- PC
-            FETCH_BRANCH_TAKEN      : out std_logic;
-            FETCH_PC_TAKEN          : out std_logic_vector(31 downto 0);
-
             -- ==== WB > ====
             -- PC
             WB_PC_NOT_TAKEN         : out std_logic_vector(31 downto 0);
@@ -323,9 +323,14 @@ package pkg_lagarisc is
             WB_ALU_RESULT           : out std_logic_vector(31 downto 0);
             -- MEM
             WB_MEM_DOUT             : out std_logic_vector(31 downto 0);
-            WB_MEM_VALID            : out std_logic;
+            WB_MEM_WE               : out std_logic;
             -- WB MUX
-            WB_WB_MUX               : out mux_wb_src_t
+            WB_WB_MUX               : out mux_wb_src_t;
+
+            -- ==== SUPERVISOR > ====
+            -- PC
+            SUP_BRANCH_TAKEN        : out std_logic;
+            SUP_PC_TAKEN            : out std_logic_vector(31 downto 0)
         );
     end component;
 
@@ -333,8 +338,6 @@ package pkg_lagarisc is
         port (
             CLK                     : in std_logic;
             RST                     : in std_logic;
-
-            STAGE_READY             : out std_logic;
 
             -- ==== > MEM ====
             -- PC
@@ -346,7 +349,7 @@ package pkg_lagarisc is
             MEM_ALU_RESULT          : in std_logic_vector(31 downto 0);
             -- MEM
             MEM_MEM_DOUT            : in std_logic_vector(31 downto 0);
-            MEM_MEM_VALID           : in std_logic;
+            MEM_MEM_WE              : in std_logic;
             -- WB
             MEM_WB_MUX              : in mux_wb_src_t;
 
@@ -370,10 +373,15 @@ package pkg_lagarisc is
             FLUSH                   : in std_logic;
             STALL                   : in std_logic;
 
+            -- Valid & ready
+            FETCH_OUT_VALID         : in std_logic;
+            DECODE_IN_READY         : out std_logic;
+            DECODE_OUT_VALID        : out std_logic;
+            EXEC_IN_READY           : in std_logic;
+
             -- ==== > FETCH ====
             FETCH_PROGRAM_COUNTER   : in  std_logic_vector(31 downto 0);
             FETCH_INST_DATA         : in  std_logic_vector(31 downto 0);
-            FETCH_INST_VALID        : in  std_logic;
 
             -- ==== REG FILE > ====
             REGFILE_RS1_ID          : out std_logic_vector(4 downto 0); -- WRN: not registered.
@@ -388,7 +396,6 @@ package pkg_lagarisc is
             -- INST FX
             EXEC_INST_F3            : out std_logic_vector(2 downto 0);
             EXEC_INST_F7            : out std_logic_vector(6 downto 0);
-            EXEC_INST_VALID         : out std_logic;
             -- RSX
             EXEC_RS1_ID             : out std_logic_vector(4 downto 0);
             EXEC_RS2_ID             : out std_logic_vector(4 downto 0);
@@ -435,8 +442,13 @@ package pkg_lagarisc is
             RST                     : in std_logic;
 
             -- ==== Control & command ====
-            ALU_READY               : out std_logic;
+            FLUSH                   : in std_logic;
             STALL                   : in std_logic;
+
+            DECODE_OUT_VALID        : in std_logic;
+            ALU_IN_READY            : out std_logic;
+            ALU_OUT_VALID           : out std_logic;
+            MEM_IN_READY            : in std_logic;
 
             -- ==== > DECODE ====
             -- PC

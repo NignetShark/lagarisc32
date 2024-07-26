@@ -23,10 +23,6 @@ entity lagarisc_core is
 
 architecture rtl of lagarisc_core is
 
-    signal fetch_ready              : std_logic;
-    signal exec_ready               : std_logic;
-    signal mem_ready                : std_logic;
-
     signal fetch_stall              : std_logic;
     signal decode_stall             : std_logic;
     signal exec_stall               : std_logic;
@@ -37,12 +33,19 @@ architecture rtl of lagarisc_core is
     signal exec_flush               : std_logic;
     signal mem_flush                : std_logic;
 
+    signal fetch_in_ready           : std_logic;
+    signal fetch_out_valid          : std_logic;
+    signal decode_in_ready          : std_logic;
+    signal decode_out_valid         : std_logic;
+    signal exec_in_ready            : std_logic;
+    signal exec_out_valid           : std_logic;
+    signal mem_in_ready             : std_logic;
+
     signal fetch_branch_taken       : std_logic;
     signal fetch_pc_taken           : std_logic_vector(31 downto 0);
 
     signal dc_exec_program_counter  : std_logic_vector(31 downto 0);
     signal dc_inst_data             : std_logic_vector(31 downto 0);
-    signal dc_inst_valid            : std_logic;
 
     signal exec_program_counter     : std_logic_vector(31 downto 0);
     signal exec_branch_op           : branch_op_t;
@@ -50,7 +53,6 @@ architecture rtl of lagarisc_core is
     signal exec_branch_src          : mux_branch_src_t;
     signal exec_inst_f3             : std_logic_vector(2 downto 0);
     signal exec_inst_f7             : std_logic_vector(6 downto 0);
-    signal exec_inst_valid          : std_logic;
     signal exec_rs1_id              : std_logic_vector(4 downto 0);
     signal exec_rs2_id              : std_logic_vector(4 downto 0);
     signal exec_rs1_data            : std_logic_vector(31 downto 0);
@@ -73,7 +75,6 @@ architecture rtl of lagarisc_core is
     signal mem_rd_we                : std_logic;
     signal mem_alu_result           : std_logic_vector(31 downto 0);
     signal mem_inst_f3              : std_logic_vector(2 downto 0);
-    signal mem_inst_valid           : std_logic;
     signal mem_mem_din              : std_logic_vector(31 downto 0);
     signal mem_mem_en               : std_logic;
     signal mem_mem_we               : std_logic;
@@ -84,47 +85,47 @@ architecture rtl of lagarisc_core is
     signal wb_rd_we                 : std_logic;
     signal wb_alu_result            : std_logic_vector(31 downto 0);
     signal wb_mem_dout              : std_logic_vector(31 downto 0);
-    signal wb_mem_valid             : std_logic;
+    signal wb_mem_we                : std_logic;
     signal wb_wb_mux                : mux_wb_src_t;
 
     signal dc_rd_id                 : std_logic_vector(4 downto 0);
     signal dc_rd_data               : std_logic_vector(31 downto 0);
     signal dc_rd_we                 : std_logic;
+
+    signal sup_branch_taken         : std_logic;
+    signal sup_pc_taken             : std_logic_vector(31 downto 0);
 begin
 
+    fetch_stall   <= '0';
+    decode_stall  <= '0';
+    exec_stall    <= '0';
+    mem_stall     <= '0';
+
     inst_supervisor : lagarisc_supervisor
+        generic map (
+            G_BOOT_ADDR     => G_BOOT_ADDR
+        )
         port map (
             CLK                 => CLK,
             RST                 => RST,
 
-            -- Ready
-            FETCH_READY         => fetch_ready,
-            EXEC_READY          => exec_ready,
-            MEM_READY           => mem_ready,
+            -- ==== > MEM ====
+            MEM_BRANCH_TAKEN    => sup_branch_taken,
+            MEM_PC_TAKEN        => sup_pc_taken,
 
-            -- Validity
-            EXEC_INST_VALID     => exec_inst_valid,
-            MEM_INST_VALID      => mem_inst_valid,
+            -- ==== > FETCH ====
+            FETCH_BRANCH_TAKEN  => fetch_branch_taken,
+            FETCH_PC_TAKEN      => fetch_pc_taken,
 
-            -- Branch taken ?
-            MEM_BRANCH_TAKEN    => fetch_branch_taken,
-
-            -- Flush
+            -- ==== Flush ====
             FETCH_FLUSH         => fetch_flush,
             DECODE_FLUSH        => decode_flush,
             EXEC_FLUSH          => exec_flush,
-            MEM_FLUSH           => mem_flush,
-
-            -- Stall
-            FETCH_STALL         => fetch_stall,
-            DECODE_STALL        => decode_stall,
-            EXEC_STALL          => exec_stall,
-            MEM_STALL           => mem_stall
+            MEM_FLUSH           => mem_flush
         );
 
     inst_fetch_bram : lagarisc_fetch_bram
         generic map (
-            G_BOOT_ADDR     => G_BOOT_ADDR,
             G_BRAM_LATENCY  => G_BRAM_LATENCY
         )
         port map(
@@ -132,9 +133,13 @@ begin
             RST                     => RST,
 
             -- ==== Control & command ====
-            STAGE_READY             => fetch_ready,
             FLUSH                   => fetch_flush,
             STALL                   => fetch_stall,
+
+            MEM_BRANCH_OUT_VALID    => '1',
+            FETCH_IN_READY          => fetch_in_ready,
+            FETCH_OUT_VALID         => fetch_out_valid,
+            DECODE_IN_READY         => decode_in_ready,
 
             -- ==== BRAM interface ====
             BRAM_EN                 => BRAM_EN,
@@ -144,11 +149,10 @@ begin
             -- ==== DECODE stage ====
             DC_EXEC_PROGRAM_COUNTER => dc_exec_program_counter,
             DC_INST_DATA            => dc_inst_data,
-            DC_INST_VALID           => dc_inst_valid,
 
             -- === MEMORY stage ===
-            MEM_BRANCH_TAKEN        => fetch_branch_taken,
-            MEM_PC_TAKEN            => fetch_pc_taken
+            SUP_BRANCH_TAKEN        => fetch_branch_taken,
+            SUP_PC_TAKEN            => fetch_pc_taken
         );
 
     inst_stage_decode : lagarisc_stage_decode
@@ -160,10 +164,15 @@ begin
             STALL                       => decode_stall,
             FLUSH                       => decode_flush,
 
+            -- Valid & ready
+            FETCH_OUT_VALID             => fetch_out_valid,
+            DECODE_IN_READY             => decode_in_ready,
+            DECODE_OUT_VALID            => decode_out_valid,
+            EXEC_IN_READY               => exec_in_ready,
+
             -- ==== > FETCH ====
             FETCH_PROGRAM_COUNTER       => dc_exec_program_counter,
             FETCH_INST_DATA             => dc_inst_data,
-            FETCH_INST_VALID            => dc_inst_valid,
 
             -- ==== EXEC > ====
             -- PC
@@ -174,7 +183,6 @@ begin
             -- ALU
             EXEC_INST_F3                => exec_inst_f3,
             EXEC_INST_F7                => exec_inst_f7,
-            EXEC_INST_VALID             => exec_inst_valid,
             -- RSX
             EXEC_RS1_DATA               => exec_rs1_data,
             EXEC_RS2_DATA               => exec_rs2_data,
@@ -206,9 +214,14 @@ begin
             CLK                 => CLK,
             RST                 => RST,
 
-            STAGE_READY         => exec_ready,
+            -- ==== Control & command ====
             STALL               => exec_stall,
             FLUSH               => exec_flush,
+
+            DECODE_OUT_VALID    => decode_out_valid,
+            EXEC_IN_READY       => exec_in_ready,
+            EXEC_OUT_VALID      => exec_out_valid,
+            MEM_IN_READY        => mem_in_ready,
 
             -- ==== > FETCH ====
             FETCH_PROGRAM_COUNTER   => dc_exec_program_counter,
@@ -222,7 +235,6 @@ begin
             -- INST
             DC_INST_F3              => exec_inst_f3,
             DC_INST_F7              => exec_inst_f7,
-            DC_INST_VALID           => exec_inst_valid,
             -- RSX
             DC_RS1_ID               => exec_rs1_id,
             DC_RS2_ID               => exec_rs2_id,
@@ -250,7 +262,6 @@ begin
             MEM_BRANCH_OP           => mem_branch_op,
             -- INST
             MEM_INST_F3             => mem_inst_f3,
-            MEM_INST_VALID          => mem_inst_valid,
             -- RD
             MEM_RD_ID               => mem_rd_id,
             MEM_RD_WE               => mem_rd_we,
@@ -281,9 +292,12 @@ begin
             CLK                     => CLK,
             RST                     => RST,
 
-            STAGE_READY             => mem_ready,
+            -- ==== Control & command ====
             FLUSH                   => mem_flush,
             STALL                   => mem_stall,
+
+            EXEC_OUT_VALID          => exec_out_valid,
+            MEM_IN_READY            => mem_in_ready,
 
             -- ==== > EXEC ====
             -- PC
@@ -292,7 +306,6 @@ begin
             EXEC_BRANCH_OP          => mem_branch_op,
             -- INST
             EXEC_INST_F3            => mem_inst_f3,
-            EXEC_INST_VALID         => mem_inst_valid,
             -- RD
             EXEC_RD_ID              => mem_rd_id,
             EXEC_RD_WE              => mem_rd_we,
@@ -305,11 +318,6 @@ begin
             -- WB MUX
             EXEC_WB_MUX             => mem_wb_mux,
 
-            -- ==== FETCH > ====
-            -- PC
-            FETCH_BRANCH_TAKEN      => fetch_branch_taken,
-            FETCH_PC_TAKEN          => fetch_pc_taken,
-
             -- ==== WB > ====
             -- PC
             WB_PC_NOT_TAKEN         => wb_pc_not_taken,
@@ -320,17 +328,20 @@ begin
             WB_ALU_RESULT           => wb_alu_result,
             -- MEM
             WB_MEM_DOUT             => wb_mem_dout,
-            WB_MEM_VALID            => wb_mem_valid,
+            WB_MEM_WE               => wb_mem_we,
             -- WB MUX
-            WB_WB_MUX               => wb_wb_mux
+            WB_WB_MUX               => wb_wb_mux,
+
+            -- ==== SUP > ====
+            -- PC
+            SUP_BRANCH_TAKEN      => sup_branch_taken,
+            SUP_PC_TAKEN          => sup_pc_taken
         );
 
     inst_stage_wb : lagarisc_stage_wb
         port map (
             CLK                 => CLK,
             RST                 => RST,
-
-            STAGE_READY         => open,
 
             -- ==== > MEM ====
             -- PC
@@ -342,7 +353,7 @@ begin
             MEM_ALU_RESULT      => wb_alu_result,
             -- MEM
             MEM_MEM_DOUT        => wb_mem_dout,
-            MEM_MEM_VALID       => wb_mem_valid,
+            MEM_MEM_WE          => wb_mem_we,
             -- WB
             MEM_WB_MUX          => wb_wb_mux,
 

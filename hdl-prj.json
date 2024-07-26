@@ -1,6 +1,7 @@
 {
     "options": {
         "ghdl_analysis": [
+            "--std=08",
             "--workdir=work",
             "--ieee=synopsys",
             "-fexplicit"

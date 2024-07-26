@@ -25,5 +25,5 @@ async def test_fetch(dut):
         await RisingEdge(dut.clk)
 
     #dut.fetch_en.value = 0
-    await Timer(300, 'ns')
+    await Timer(1200, 'ns')
 

@@ -10,9 +10,14 @@ entity lagarisc_stage_exec is
         CLK                     : in std_logic;
         RST                     : in std_logic;
 
-        STAGE_READY             : out std_logic;
+        -- ==== Control & command ====
         FLUSH                   : in std_logic;
         STALL                   : in std_logic;
+
+        DECODE_OUT_VALID        : in std_logic;
+        EXEC_IN_READY           : out std_logic;
+        EXEC_OUT_VALID          : out std_logic;
+        MEM_IN_READY            : in std_logic;
 
         -- ==== > FETCH ====
         FETCH_PROGRAM_COUNTER   : in std_logic_vector(31 downto 0);
@@ -26,7 +31,6 @@ entity lagarisc_stage_exec is
         -- INST
         DC_INST_F3              : in std_logic_vector(2 downto 0);
         DC_INST_F7              : in std_logic_vector(6 downto 0);
-        DC_INST_VALID           : in std_logic;
         -- RSX
         DC_RS1_ID               : in std_logic_vector(4 downto 0);
         DC_RS2_ID               : in std_logic_vector(4 downto 0);
@@ -54,7 +58,6 @@ entity lagarisc_stage_exec is
         MEM_BRANCH_OP           : out branch_op_t;
         -- INST
         MEM_INST_F3             : out std_logic_vector(2 downto 0);
-        MEM_INST_VALID          : out std_logic;
         -- RD
         MEM_RD_ID               : out std_logic_vector(4 downto 0);
         MEM_RD_WE               : out std_logic;
@@ -79,17 +82,25 @@ entity lagarisc_stage_exec is
 end entity;
 
 architecture rtl of lagarisc_stage_exec is
+    signal alu_in_ready : std_logic;
     signal fwd_rs1_data : std_logic_vector(31 downto 0);
     signal fwd_rs2_data : std_logic_vector(31 downto 0);
 begin
+    EXEC_IN_READY <= alu_in_ready;
 
     inst_alu : lagarisc_alu
         port map(
             CLK                     => CLK,
             RST                     => RST,
             -- ==== Control & command ====
-            ALU_READY               => STAGE_READY,
+            FLUSH                   => FLUSH,
             STALL                   => STALL,
+
+            DECODE_OUT_VALID        => DECODE_OUT_VALID,
+            ALU_IN_READY            => alu_in_ready,
+            ALU_OUT_VALID           => EXEC_OUT_VALID,
+            MEM_IN_READY            => MEM_IN_READY,
+
             -- ==== > DECODE ====
             -- PC
             DC_PROGRAM_COUNTER      => DC_PROGRAM_COUNTER,
@@ -156,7 +167,7 @@ begin
             else
                 if STALL = '1' then
                     null;
-                else
+                elsif (alu_in_ready = '1') and (DECODE_OUT_VALID = '1') then
                     ---------------------------------------------
                     -- Compute every PC possible (taken/not taken)
                     ---------------------------------------------
@@ -167,7 +178,7 @@ begin
                     if DC_BRANCH_SRC = MUX_BRANCH_SRC_PC then
                         -- PC = PC + IMM
                         op1 := DC_PROGRAM_COUNTER;
-                    else
+                    else  -- DC_BRANCH_SRC = MUX_BRANCH_SRC_RS1
                         -- PC = RS1 + IMM
                         op1 := fwd_rs1_data;
                     end if;
@@ -185,7 +196,6 @@ begin
                 MEM_BRANCH_OP   <= BRANCH_NOP;
                 -- INST
                 MEM_INST_F3     <= (others => '-');
-                MEM_INST_VALID  <= '0';
                 -- RD
                 MEM_RD_ID       <= (others => '0');
                 MEM_RD_WE       <= '0';
@@ -196,12 +206,10 @@ begin
                 -- WB MUX
                 MEM_WB_MUX      <= MUX_WB_SRC_ALU;
             else
-                STAGE_READY     <= '1';
-                MEM_INST_VALID  <= DC_INST_VALID;
 
                 if STALL = '1' then
                     null;
-                elsif DC_INST_VALID = '1' then
+                elsif (alu_in_ready = '1') and (DECODE_OUT_VALID = '1')  then
                     -- PC
                     MEM_BRANCH_OP   <= DC_BRANCH_OP;
                     -- INST
@@ -215,14 +223,9 @@ begin
                     MEM_MEM_WE      <= DC_MEM_WE;
                     -- WB MUX
                     MEM_WB_MUX      <= DC_WB_MUX;
-                else
-                    MEM_RD_WE       <= '0';
-                    MEM_MEM_EN      <= '0';
-                    MEM_MEM_WE      <= '0';
                 end if;
 
                 if FLUSH = '1' then
-                    MEM_INST_VALID  <= '0';
                     MEM_RD_WE       <= '0';
                     MEM_MEM_EN      <= '0';
                     MEM_MEM_WE      <= '0';

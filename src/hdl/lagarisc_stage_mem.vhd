@@ -13,18 +13,20 @@ entity lagarisc_stage_mem is
         CLK                     : in std_logic;
         RST                     : in std_logic;
 
-        STAGE_READY             : out std_logic;
-        STALL                   : in std_logic;
+        -- ==== Control & command ====
         FLUSH                   : in std_logic;
+        STALL                   : in std_logic;
+
+        EXEC_OUT_VALID          : in std_logic;
+        MEM_IN_READY            : out std_logic;
 
         -- ==== > EXEC ====
         -- PC
         EXEC_PC_TAKEN           : in std_logic_vector(31 downto 0);
         EXEC_PC_NOT_TAKEN       : in std_logic_vector(31 downto 0); -- PC + 4
-        EXEC_BRANCH_OP             : in branch_op_t;
+        EXEC_BRANCH_OP          : in branch_op_t;
         -- INST
         EXEC_INST_F3            : in std_logic_vector(2 downto 0);
-        EXEC_INST_VALID         : in std_logic;
         -- RD
         EXEC_RD_ID              : in std_logic_vector(4 downto 0);
         EXEC_RD_WE              : in std_logic;
@@ -37,11 +39,6 @@ entity lagarisc_stage_mem is
         -- WB MUX
         EXEC_WB_MUX             : in mux_wb_src_t;
 
-        -- ==== FETCH > ====
-        -- PC
-        FETCH_BRANCH_TAKEN      : out std_logic;
-        FETCH_PC_TAKEN          : out std_logic_vector(31 downto 0);
-
         -- ==== WB > ====
         -- PC
         WB_PC_NOT_TAKEN         : out std_logic_vector(31 downto 0);
@@ -52,24 +49,35 @@ entity lagarisc_stage_mem is
         WB_ALU_RESULT           : out std_logic_vector(31 downto 0);
         -- MEM
         WB_MEM_DOUT             : out std_logic_vector(31 downto 0);
-        WB_MEM_VALID            : out std_logic;
+        WB_MEM_WE               : out std_logic;
         -- WB MUX
-        WB_WB_MUX               : out mux_wb_src_t
+        WB_WB_MUX               : out mux_wb_src_t;
+
+        -- ==== SUPERVISOR > ====
+        -- PC
+        SUP_BRANCH_TAKEN        : out std_logic;
+        SUP_PC_TAKEN            : out std_logic_vector(31 downto 0)
     );
 end entity;
 
 architecture rtl of lagarisc_stage_mem is
+    signal mem_out_valid_int : std_logic;
+    signal mem_in_ready_int : std_logic;
+
 begin
+    mem_in_ready_int <= '1' or (not mem_out_valid_int);
+    MEM_IN_READY <= mem_in_ready_int;
+
     process (CLK)
         variable v_branch_taken : std_logic;
     begin
         if rising_edge(CLK) then
             if RST = '1' then
-                STAGE_READY             <= '0';
-
+                -- Ctrl & cmd
+                mem_out_valid_int       <= '0';
                 -- PC
-                FETCH_BRANCH_TAKEN      <= '0';
-                FETCH_PC_TAKEN          <= (others => '-');
+                SUP_BRANCH_TAKEN        <= '0';
+                SUP_PC_TAKEN            <= (others => '-');
                 WB_PC_NOT_TAKEN         <= (others => '-');
                 -- RD
                 WB_RD_ID                <= (others => '-');
@@ -78,17 +86,19 @@ begin
                 WB_ALU_RESULT           <= (others => '-');
                 -- MEM
                 WB_MEM_DOUT             <= (others => '-');
-                WB_MEM_VALID            <= '0';
+                WB_MEM_WE               <= '0';
                 -- WB MUX
                 WB_WB_MUX               <= MUX_WB_SRC_ALU;
             else
-                STAGE_READY <= '1';
                 v_branch_taken := '0';
 
 
                 if(STALL = '1') then
                     null;
-                elsif(EXEC_INST_VALID = '1') then
+                elsif (mem_in_ready_int = '1') and (EXEC_OUT_VALID = '1') then
+                    -- Default
+                    mem_out_valid_int <= '1';
+
                     -------------------------------------------------
                     -- Register forwarding
                     -------------------------------------------------
@@ -104,7 +114,7 @@ begin
                     -- PC : Branch evaluation
                     -------------------------------------------------
                     WB_PC_NOT_TAKEN         <= EXEC_PC_NOT_TAKEN;
-                    FETCH_PC_TAKEN          <= EXEC_PC_TAKEN;
+                    SUP_PC_TAKEN            <= EXEC_PC_TAKEN;
 
                     case EXEC_BRANCH_OP is
                         when BRANCH_OP_COND =>
@@ -114,23 +124,27 @@ begin
                         when others =>
                             v_branch_taken := '0';
                     end case;
-                    FETCH_BRANCH_TAKEN <= v_branch_taken;
+                    SUP_BRANCH_TAKEN <= v_branch_taken;
 
                     if v_branch_taken = '1' then
-                        WB_MEM_VALID        <= '0';
+                        -- Invalid WB data
                         WB_RD_WE            <= '0';
+                        WB_MEM_WE           <= '0';
                     end if;
                 else
-                    FETCH_BRANCH_TAKEN  <= '0';
-                    WB_MEM_VALID        <= '0';
+                    mem_out_valid_int   <= '0';
+                    SUP_BRANCH_TAKEN    <= '0';
                     WB_RD_WE            <= '0';
+                    WB_MEM_WE           <= '0';
                 end if;
 
-                if (FLUSH = '1')then
-                    FETCH_BRANCH_TAKEN  <= '0';
-                    WB_MEM_VALID        <= '0';
+                if FLUSH = '1' then
+                    mem_out_valid_int   <= '0';
+                    SUP_BRANCH_TAKEN    <= '0';
                     WB_RD_WE            <= '0';
+                    WB_MEM_WE           <= '0';
                 end if;
+
             end if;
         end if;
     end process;

@@ -10,8 +10,6 @@ entity lagarisc_stage_wb is
         CLK                     : in std_logic;
         RST                     : in std_logic;
 
-        STAGE_READY             : out std_logic;
-
         -- ==== > MEM ====
         -- PC
         MEM_PC_NOT_TAKEN        : in std_logic_vector(31 downto 0);
@@ -22,7 +20,7 @@ entity lagarisc_stage_wb is
         MEM_ALU_RESULT          : in std_logic_vector(31 downto 0);
         -- MEM
         MEM_MEM_DOUT            : in std_logic_vector(31 downto 0);
-        MEM_MEM_VALID           : in std_logic;
+        MEM_MEM_WE              : in std_logic;
         -- WB
         MEM_WB_MUX              : in mux_wb_src_t;
 
@@ -41,5 +39,5 @@ begin
                     MEM_MEM_DOUT when MEM_WB_MUX = MUX_WB_SRC_MEM else
                     MEM_PC_NOT_TAKEN;
 
-    DC_RD_WE    <=  MEM_MEM_VALID when MEM_WB_MUX = MUX_WB_SRC_MEM else MEM_RD_WE;
+    DC_RD_WE    <=  MEM_MEM_WE when MEM_WB_MUX = MUX_WB_SRC_MEM else MEM_RD_WE;
 end architecture;

@@ -14,10 +14,15 @@ entity lagarisc_decode is
         FLUSH                   : in std_logic;
         STALL                   : in std_logic;
 
+        -- Valid & ready
+        FETCH_OUT_VALID         : in std_logic;
+        DECODE_IN_READY         : out std_logic;
+        DECODE_OUT_VALID        : out std_logic;
+        EXEC_IN_READY           : in std_logic;
+
         -- ==== > FETCH ====
         FETCH_PROGRAM_COUNTER   : in  std_logic_vector(31 downto 0);
         FETCH_INST_DATA         : in  std_logic_vector(31 downto 0);
-        FETCH_INST_VALID        : in  std_logic;
 
         -- ==== REG FILE > ====
         REGFILE_RS1_ID          : out std_logic_vector(4 downto 0); -- WRN: not registered.
@@ -32,7 +37,6 @@ entity lagarisc_decode is
         -- INST FX
         EXEC_INST_F3            : out std_logic_vector(2 downto 0);
         EXEC_INST_F7            : out std_logic_vector(6 downto 0);
-        EXEC_INST_VALID         : out std_logic;
         -- RSX
         EXEC_RS1_ID             : out std_logic_vector(4 downto 0);
         EXEC_RS2_ID             : out std_logic_vector(4 downto 0);
@@ -55,11 +59,15 @@ end entity;
 
 
 architecture rtl of lagarisc_decode is
+
     constant C_CONSTANT_4 : std_logic_vector := std_logic_vector(to_signed(4, 32));
 
     -------------------------------------------------
     -- Signal
     -------------------------------------------------
+    signal decode_out_valid_int : std_logic;
+    signal decode_in_ready_int : std_logic;
+
     signal inst_rs1         : std_logic_vector(4 downto 0);
     signal inst_rs2         : std_logic_vector(4 downto 0);
     signal inst_f7          : std_logic_vector(6 downto 0);
@@ -74,24 +82,26 @@ architecture rtl of lagarisc_decode is
     signal imm_u            : std_logic_vector(31 downto 0);
     signal imm_shamt        : std_logic_vector(4 downto 0);
 
-    signal imm_i_signed      : std_logic_vector(31 downto 0);
-    signal imm_i_unsigned    : std_logic_vector(31 downto 0);
-    signal imm_b_signed      : std_logic_vector(31 downto 0);
-    signal imm_j_signed      : std_logic_vector(31 downto 0);
+    signal imm_i_signed     : std_logic_vector(31 downto 0);
+    signal imm_i_unsigned   : std_logic_vector(31 downto 0);
+    signal imm_b_signed     : std_logic_vector(31 downto 0);
+    signal imm_b_unsigned   : std_logic_vector(31 downto 0);
+    signal imm_j_signed     : std_logic_vector(31 downto 0);
 
     -------------------------------------------------
     -- Function
     -------------------------------------------------
     function transl_alu_opcode (
         signal p_inst_f3 : in std_logic_vector(2 downto 0);
-        signal p_inst_f7 : in std_logic_vector(6 downto 0))
+        signal p_inst_f7 : in std_logic_vector(6 downto 0);
+        constant is_immediate : in boolean)
     return alu_opcode_t is
         variable opcode : alu_opcode_t;
     begin
         opcode := ALU_OPCODE_ZERO; -- Used as NOP
         case p_inst_f3 is
             when C_F3_ADD_SUB =>
-                if p_inst_f7(5) = '1' then
+                if (p_inst_f7(5) = '1') and (is_immediate = false) then -- No substration with immediate
                     opcode := ALU_OPCODE_SUB;
                 else
                     opcode := ALU_OPCODE_ADD;
@@ -147,18 +157,36 @@ architecture rtl of lagarisc_decode is
 
     function select_imm_i(
         signal p_inst_f3 : in std_logic_vector(2 downto 0);
-        signal p_imm_i_signed   : in std_logic_vector(31 downto 0);
-        signal p_imm_i_unsigned : in std_logic_vector(31 downto 0))
+        signal p_imm_signed   : in std_logic_vector(31 downto 0);
+        signal p_imm_unsigned : in std_logic_vector(31 downto 0))
     return std_logic_vector is
         variable result : std_logic_vector(31 downto 0);
     begin
         case p_inst_f3 is
             -- Unsigned operations
-            when C_F3_SLTU | C_F3_BGEU =>
-                result := p_imm_i_unsigned;
+            when C_F3_SLTU =>
+                result := p_imm_unsigned;
             -- Signed operations
             when others =>
-                result := p_imm_i_signed;
+                result := p_imm_signed;
+        end case;
+        return result;
+    end function;
+
+    function select_imm_b(
+        signal p_inst_f3 : in std_logic_vector(2 downto 0);
+        signal p_imm_signed   : in std_logic_vector(31 downto 0);
+        signal p_imm_unsigned : in std_logic_vector(31 downto 0))
+    return std_logic_vector is
+        variable result : std_logic_vector(31 downto 0);
+    begin
+        case p_inst_f3 is
+            -- Unsigned operations
+            when C_F3_BLTU | C_F3_BGEU =>
+                result := p_imm_unsigned;
+            -- Signed operations
+            when others =>
+                result := p_imm_signed;
         end case;
         return result;
     end function;
@@ -184,16 +212,23 @@ begin
     imm_i_signed      <= std_logic_vector(resize(signed(imm_i), 32));
     imm_i_unsigned    <= std_logic_vector(resize(unsigned(imm_i), 32));
     imm_b_signed      <= std_logic_vector(resize(signed(imm_b), 32));
+    imm_b_unsigned    <= std_logic_vector(resize(unsigned(imm_b), 32));
     imm_j_signed      <= std_logic_vector(resize(signed(imm_j), 32));
 
     REGFILE_RS1_ID      <= inst_rs1;
     REGFILE_RS2_ID      <= inst_rs2;
 
+    decode_in_ready_int    <= EXEC_IN_READY or (not decode_out_valid_int);
+    DECODE_IN_READY        <= decode_in_ready_int;
+    DECODE_OUT_VALID       <= decode_out_valid_int;
+
     process(CLK)
-        variable decoded_alu_op : alu_opcode_t;
     begin
         if rising_edge(CLK) then
             if RST = '1' then
+                -- Ctrl & cmd
+                decode_out_valid_int    <= '0';
+
                 -- PC
                 EXEC_PROGRAM_COUNTER    <= (others => '-');
                 EXEC_BRANCH_OP          <= BRANCH_NOP;
@@ -203,7 +238,6 @@ begin
                 -- INST FX
                 EXEC_INST_F3            <= (others => '-');
                 EXEC_INST_F7            <= (others => '-');
-                EXEC_INST_VALID         <= '0';
 
                 -- RSX
                 EXEC_RS1_ID             <= (others => '0');
@@ -227,24 +261,22 @@ begin
                 -- WB MUX
                 EXEC_WB_MUX             <= MUX_WB_SRC_ALU;
             else
-                -- Decode alu opcode from F3 & F7 informations
-                decoded_alu_op := transl_alu_opcode(inst_f3, inst_f7);
-
                 if STALL = '1' then
                     null; -- Bubble
-                else
+
+                elsif (decode_in_ready_int = '1') and (FETCH_OUT_VALID = '1') then
                     -------------------------------------------------
                     -- Default commands
                     -------------------------------------------------
                     -- PC
                     EXEC_PROGRAM_COUNTER    <= FETCH_PROGRAM_COUNTER;
                     EXEC_BRANCH_OP          <= BRANCH_NOP;
+                    EXEC_BRANCH_IMM         <= (others => '0');
                     EXEC_BRANCH_SRC         <= MUX_BRANCH_SRC_PC;
 
                     -- INST
                     EXEC_INST_F3            <= inst_f3;
                     EXEC_INST_F7            <= inst_f7;
-                    EXEC_INST_VALID         <= FETCH_INST_VALID;
 
                     -- RSX
                     EXEC_RS1_ID             <= inst_rs1;
@@ -267,68 +299,69 @@ begin
                     -- WB MUX
                     EXEC_WB_MUX             <= MUX_WB_SRC_ALU;
 
-                    if FETCH_INST_VALID = '1' then
+                    -- Valid data generated
+                    decode_out_valid_int <= '1';
 
-                        -- Valid instruction is ready to be processsed
-                        case inst_opcode is
-                            -- LUI : Load Upper Immediat
-                            when C_OP_LUI =>
-                                EXEC_ALU_IMM        <= imm_u;
-                                EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
-                                EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
-                                EXEC_RD_WE          <= '1';
+                    case inst_opcode is
+                        -- LUI : Load Upper Immediat
+                        when C_OP_LUI =>
+                            EXEC_ALU_IMM        <= imm_u;
+                            EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
+                            EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
+                            EXEC_RD_WE          <= '1';
 
-                            -- Integer Register-Register Operations
-                            when C_OP_ARTH =>
-                                EXEC_ALU_OPC        <= decoded_alu_op;
-                                EXEC_RD_WE          <= '1';
+                        -- Integer Register-Register Operations
+                        when C_OP_ARTH =>
+                            EXEC_ALU_OPC        <= transl_alu_opcode(inst_f3, inst_f7, false);
+                            EXEC_RD_WE          <= '1';
 
-                            -- Integer Register-Immediate Instructions
-                            when C_OP_ARTHI =>
-                                EXEC_ALU_OPC        <= decoded_alu_op;
-                                EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
-                                EXEC_RD_WE          <= '1';
-                                EXEC_ALU_IMM        <= select_imm_i(inst_f3, imm_i_signed, imm_i_unsigned);
+                        -- Integer Register-Immediate Instructions
+                        when C_OP_ARTHI =>
+                            EXEC_ALU_OPC        <= transl_alu_opcode(inst_f3, inst_f7, true);
+                            EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
+                            EXEC_RD_WE          <= '1';
+                            EXEC_ALU_IMM        <= select_imm_i(inst_f3, imm_i_signed, imm_i_unsigned);
 
-                            when C_OP_LOAD =>
-                                -- Todo
+                        when C_OP_LOAD =>
+                            -- Todo
 
-                            when C_OP_STORE =>
-                                -- Todo
+                        when C_OP_STORE =>
+                            -- Todo
 
-                            -- Conditional Branches
-                            when C_OP_BRANCH =>
-                                EXEC_BRANCH_OP      <= BRANCH_OP_COND;
-                                EXEC_BRANCH_IMM     <= imm_b_signed;
-                                EXEC_ALU_OPC        <= transl_branch_opcode(inst_f3);
+                        -- Conditional Branches
+                        when C_OP_BRANCH =>
+                            EXEC_BRANCH_OP      <= BRANCH_OP_COND;
+                            EXEC_BRANCH_IMM     <= imm_b_signed;
+                            EXEC_ALU_OPC        <= transl_branch_opcode(inst_f3);
+                            EXEC_ALU_IMM        <= select_imm_b(inst_f3, imm_b_signed, imm_b_unsigned);
 
-                            when C_OP_JAL =>
-                                EXEC_BRANCH_OP      <= BRANCH_OP_UNCOND;
-                                EXEC_BRANCH_SRC     <= MUX_BRANCH_SRC_PC;
-                                EXEC_BRANCH_IMM     <= imm_j_signed;
+                        when C_OP_JAL =>
+                            EXEC_BRANCH_OP      <= BRANCH_OP_UNCOND;
+                            EXEC_BRANCH_SRC     <= MUX_BRANCH_SRC_PC;
+                            EXEC_BRANCH_IMM     <= imm_j_signed;
 
-                                EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
-                                EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_PC;
-                                EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
-                                EXEC_ALU_IMM        <= C_CONSTANT_4;
+                            EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
+                            EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_PC;
+                            EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
+                            EXEC_ALU_IMM        <= C_CONSTANT_4;
 
-                            when C_OP_JALR =>
-                                EXEC_BRANCH_OP      <= BRANCH_OP_UNCOND;
-                                EXEC_BRANCH_SRC     <= MUX_BRANCH_SRC_RS1;
-                                EXEC_BRANCH_IMM     <= imm_i_signed;
+                        when C_OP_JALR =>
+                            EXEC_BRANCH_OP      <= BRANCH_OP_UNCOND;
+                            EXEC_BRANCH_SRC     <= MUX_BRANCH_SRC_RS1;
+                            EXEC_BRANCH_IMM     <= imm_i_signed;
 
-                                EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
-                                EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_PC;
-                                EXEC_ALU_IMM        <= C_CONSTANT_4;
+                            EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
+                            EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_PC;
+                            EXEC_ALU_IMM        <= C_CONSTANT_4;
 
-                            when others =>
-                                null;
-                        end case;
-                    end if;
+                        when others =>
+                            null;
+                    end case;
                 end if;
 
                 if FLUSH = '1' then
-                    EXEC_INST_VALID <= '0';
+                    -- Clear validity
+                    decode_out_valid_int <= '0';
                 end if;
 
             end if;

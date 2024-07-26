@@ -6,33 +6,26 @@ library lagarisc;
 use lagarisc.pkg_lagarisc.all;
 
 entity lagarisc_supervisor is
+    generic(
+        G_BOOT_ADDR     : std_logic_vector(31 downto 0) := x"00000000"
+    );
     port (
         CLK   : in std_logic;
         RST   : in std_logic;
 
-        -- Ready
-        FETCH_READY         : in std_logic;
-        EXEC_READY          : in std_logic;
-        MEM_READY           : in std_logic;
-
-        -- Validity
-        EXEC_INST_VALID     : in std_logic;
-        MEM_INST_VALID      : in std_logic;
-
-        -- Branch taken ?
+        -- ==== > MEM ====
         MEM_BRANCH_TAKEN    : in std_logic;
+        MEM_PC_TAKEN        : in std_logic_vector(31 downto 0);
 
-        -- Flush
+        -- ==== FETCH > ====
+        FETCH_BRANCH_TAKEN  : out std_logic;
+        FETCH_PC_TAKEN      : out std_logic_vector(31 downto 0);
+
+        -- ==== Flush ====
         FETCH_FLUSH         : out std_logic;
         DECODE_FLUSH        : out std_logic;
         EXEC_FLUSH          : out std_logic;
-        MEM_FLUSH           : out std_logic;
-
-        -- Stall
-        FETCH_STALL         : out std_logic;
-        DECODE_STALL        : out std_logic;
-        EXEC_STALL          : out std_logic;
-        MEM_STALL           : out std_logic
+        MEM_FLUSH           : out std_logic
     );
 end entity;
 
@@ -49,38 +42,42 @@ architecture rtl of lagarisc_supervisor is
     signal force_exec_flush   : std_logic;
     signal force_mem_flush    : std_logic;
 
+    signal force_branching    : std_logic;
+    signal force_pc           : std_logic_vector(31 downto 0);
+
 begin
 
+    -- Force flush when branch is taken
     FETCH_FLUSH     <= force_fetch_flush  or MEM_BRANCH_TAKEN;
     DECODE_FLUSH    <= force_decode_flush or MEM_BRANCH_TAKEN;
     EXEC_FLUSH      <= force_exec_flush   or MEM_BRANCH_TAKEN;
     MEM_FLUSH       <= force_mem_flush    or MEM_BRANCH_TAKEN;
 
+    -- Supervisor can overload branching operation to force a jump (RESET, IRQ...)
+    FETCH_BRANCH_TAKEN <= '1' when force_branching = '1' else MEM_BRANCH_TAKEN;
+    FETCH_PC_TAKEN     <= force_pc when force_branching = '1' else MEM_PC_TAKEN;
+
     process (CLK)
     begin
         if rising_edge(CLK) then
             if RST = '1' then
+                -- Start with flush
                 fsm <= ST_FLUSH_PIPELINE;
+
                 -- Flush
-                force_fetch_flush     <= '0';
-                force_decode_flush    <= '0';
-                force_exec_flush      <= '0';
-                force_mem_flush       <= '0';
-                -- Fetch
-                FETCH_STALL     <= '1';
-                DECODE_STALL    <= '1';
-                EXEC_STALL      <= '1';
-                MEM_STALL       <= '1';
+                force_fetch_flush     <= '1';
+                force_decode_flush    <= '1';
+                force_exec_flush      <= '1';
+                force_mem_flush       <= '1';
+
+                -- Force to start to boot address
+                force_pc              <= G_BOOT_ADDR;
+                force_branching       <= '1';
             else
                 force_fetch_flush     <= '0';
                 force_decode_flush    <= '0';
                 force_exec_flush      <= '0';
                 force_mem_flush       <= '0';
-
-                FETCH_STALL     <= '0';
-                DECODE_STALL    <= '0';
-                EXEC_STALL      <= '0';
-                MEM_STALL       <= '0';
 
                 case fsm is
                     when ST_NOMINAL =>
@@ -91,6 +88,9 @@ begin
                         force_decode_flush      <= '1';
                         force_exec_flush        <= '1';
                         force_mem_flush         <= '1';
+                        -- Disable forced branching
+                        force_branching         <= '0';
+
                         fsm                     <= ST_NOMINAL;
                     when others =>
                         null;

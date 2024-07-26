@@ -12,7 +12,7 @@ class BramPorts():
         self.dout = dout
         self.we = we
         self.en = en
-    
+
     def read_addr(self):
         if self.addr.value.is_resolvable:
             return self.addr.value
@@ -21,17 +21,17 @@ class BramPorts():
 
     def read_din(self):
         return self.din.value if self.din is not None else 0
-    
+
     def write_dout(self, value):
         if self.dout is not None:
             self.dout.value = value
 
     def read_en(self):
         return self.en.value if self.din is not None else 1
-    
+
     def read_we(self):
         return self.we.value if self.we is not None else 0
-    
+
 
 class BramContent(abc.ABC):
     def __init__(self) -> None:
@@ -44,7 +44,7 @@ class BramContent(abc.ABC):
     @abc.abstractmethod
     def write(self, addr: int, value: int):
         pass
-    
+
 class BramWordContent(BramContent):
     def __init__(self) -> None:
         self.data = []
@@ -65,7 +65,7 @@ class BramWordContent(BramContent):
             return 0
         else:
             return self.data[addr // 4]
-    
+
     def write(self, addr: int, value: int):
         self.data[addr // 4] = value
 
@@ -76,7 +76,6 @@ class BramEmulator:
         self.bram_content = bram_content
         self.port_a = port_a
         self.port_b = port_b
-        pass
 
     def start_soon(self):
         if self.port_a is not None:
@@ -86,16 +85,16 @@ class BramEmulator:
 
     async def single_port_core(self, bram_port : BramPorts):
         while(1):
-            
-            last_addr   = self.port_a.read_addr()   
-            last_en     = self.port_a.read_en()
-            last_we     = self.port_a.read_we()
-            last_din    = self.port_a.read_din()
+
+            last_addr   = bram_port.read_addr()
+            last_en     = bram_port.read_en()
+            last_we     = bram_port.read_we()
+            last_din    = bram_port.read_din()
 
             await RisingEdge(self.clk)
 
             if last_en:
-                bram_port.write_dout(self.bram_content.read(last_addr))     
+                bram_port.write_dout(self.bram_content.read(last_addr))
                 if last_we:
                     self.bram_content.write(last_addr, last_din)
 

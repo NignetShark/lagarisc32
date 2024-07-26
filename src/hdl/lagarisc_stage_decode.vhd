@@ -10,13 +10,19 @@ entity lagarisc_stage_decode is
         CLK                     : in std_logic;
         RST                     : in std_logic;
 
+        -- ==== Control & command ====
         FLUSH                   : in std_logic;
         STALL                   : in std_logic;
+
+        -- Valid & ready
+        FETCH_OUT_VALID         : in std_logic;
+        DECODE_IN_READY         : out std_logic;
+        DECODE_OUT_VALID        : out std_logic;
+        EXEC_IN_READY           : in std_logic;
 
         -- ==== > FETCH ====
         FETCH_PROGRAM_COUNTER   : in  std_logic_vector(31 downto 0);
         FETCH_INST_DATA         : in  std_logic_vector(31 downto 0);
-        FETCH_INST_VALID        : in  std_logic;
 
         -- ==== EXEC > ====
         -- PC
@@ -27,7 +33,6 @@ entity lagarisc_stage_decode is
         -- INST FX
         EXEC_INST_F3            : out std_logic_vector(2 downto 0);
         EXEC_INST_F7            : out std_logic_vector(6 downto 0);
-        EXEC_INST_VALID         : out std_logic;
         -- RSX
         EXEC_RS1_ID             : out std_logic_vector(4 downto 0);
         EXEC_RS2_ID             : out std_logic_vector(4 downto 0);
@@ -69,10 +74,15 @@ begin
             FLUSH                   => FLUSH,
             STALL                   => STALL,
 
+            -- Valid & ready
+            FETCH_OUT_VALID         => FETCH_OUT_VALID,
+            DECODE_IN_READY         => DECODE_IN_READY,
+            DECODE_OUT_VALID        => DECODE_OUT_VALID,
+            EXEC_IN_READY           => EXEC_IN_READY,
+
             -- ==== > FETCH ====
             FETCH_PROGRAM_COUNTER   => FETCH_PROGRAM_COUNTER,
             FETCH_INST_DATA         => FETCH_INST_DATA,
-            FETCH_INST_VALID        => FETCH_INST_VALID,
 
             -- ==== REG FILE > ====
             REGFILE_RS1_ID          => regfile_rs1_id,
@@ -87,7 +97,6 @@ begin
             -- INST FX
             EXEC_INST_F3            => EXEC_INST_F3,
             EXEC_INST_F7            => EXEC_INST_F7,
-            EXEC_INST_VALID         => EXEC_INST_VALID,
             -- RSX
             EXEC_RS1_ID             => EXEC_RS1_ID,
             EXEC_RS2_ID             => EXEC_RS2_ID,
