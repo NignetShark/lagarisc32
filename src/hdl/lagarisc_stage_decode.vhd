@@ -50,6 +50,9 @@ entity lagarisc_stage_decode is
         -- MEM
         EXEC_MEM_EN             : out std_logic;
         EXEC_MEM_WE             : out std_logic;
+        -- CSR
+        EXEC_CSR_ID             : out std_logic_vector(11 downto 0);
+        EXEC_CSR_OPCODE         : out csr_opcode_t;
         -- WB MUX
         EXEC_WB_MUX             : out mux_wb_src_t;
 
@@ -112,6 +115,9 @@ begin
             -- MEM
             EXEC_MEM_EN             => EXEC_MEM_EN,
             EXEC_MEM_WE             => EXEC_MEM_WE,
+            -- CSR
+            EXEC_CSR_ID             => EXEC_CSR_ID,
+            EXEC_CSR_OPCODE         => EXEC_CSR_OPCODE,
             -- WB MUX
             EXEC_WB_MUX             => EXEC_WB_MUX
         );

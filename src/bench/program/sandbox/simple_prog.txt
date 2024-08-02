@@ -5,11 +5,10 @@ simple_prog.elf:     format de fichier elf64-littleriscv
 Déassemblage de la section .text :
 
 0000000000000000 <start>:
-   0:	00300293          	li	t0,3
-   4:	0012d293          	srli	t0,t0,0x1
-   8:	00100313          	li	t1,1
-   c:	00200393          	li	t2,2
-  10:	ff1ff06f          	j	0 <start>
+   0:	3000d073          	csrwi	mstatus,1
+   4:	30015073          	csrwi	mstatus,2
+   8:	3001d073          	csrwi	mstatus,3
+   c:	300252f3          	csrrwi	t0,mstatus,4
 
 Déassemblage de la section .riscv.attributes :
 

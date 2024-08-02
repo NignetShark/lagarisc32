@@ -12,7 +12,7 @@ package pkg_lagarisc is
 
     type mux_alu_op1_t is (MUX_ALU_OP1_RS1, MUX_ALU_OP1_PC);
     type mux_alu_op2_t is (MUX_ALU_OP2_RS2, MUX_ALU_OP2_IMM);
-    type mux_wb_src_t  is (MUX_WB_SRC_MEM, MUX_WB_SRC_ALU, MUX_WB_SRC_PC);
+    type mux_wb_src_t  is (MUX_WB_SRC_MEM, MUX_WB_SRC_ALU, MUX_WB_SRC_PC, MUX_WB_SRC_CSR);
 
 
     -----------------------------------------------------
@@ -27,8 +27,9 @@ package pkg_lagarisc is
     constant C_OP_STORE     : std_logic_vector(6 downto 0) := "0100011";
     constant C_OP_ARTHI     : std_logic_vector(6 downto 0) := "0010011";
     constant C_OP_ARTH      : std_logic_vector(6 downto 0) := "0110011";
-    constant C_OP_EXT       : std_logic_vector(6 downto 0) := "1110011";
+    constant C_OP_SYSTEM    : std_logic_vector(6 downto 0) := "1110011";
     constant C_OP_FENCE     : std_logic_vector(6 downto 0) := "0001111";
+
 
     -----------------------------------------------------
     -- F3
@@ -77,11 +78,58 @@ package pkg_lagarisc is
         ALU_OPCODE_SRL,     -- rd = op1 >> op2
         ALU_OPCODE_SRA,     -- rd = op1 >> op2 (msb extended)
         -- Extended operations
-        ALU_OPCODE_ZERO,    -- rd = 0
+        ALU_OPCODE_OP1,     -- rd = op1
+        ALU_OPCODE_OP2,     -- rd = op2
         ALU_OPCODE_SEQ,     -- rd = (op1 == op2) ? 1:0
         ALU_OPCODE_SNE,     -- rd = (op1 != op2) ? 1:0
         ALU_OPCODE_SGE,     -- rd = (op1 > op2) ? 1:0
         ALU_OPCODE_SGEU     -- rd = (op1 > op2) ? 1:0 [unsigned]
+    );
+
+    -----------------------------------------------------
+    -- CSR
+    -----------------------------------------------------
+
+    -- Machine information
+    constant CSR_MVENDORID  : std_logic_vector(11 downto 0) := x"F11"; -- [MRO] Vendor ID
+    constant CSR_MARCHID    : std_logic_vector(11 downto 0) := x"F12"; -- [MRO] Architecture ID
+    constant CSR_MIMPID     : std_logic_vector(11 downto 0) := x"F13"; -- [MRO] Implementation ID
+    constant CSR_MHARTID    : std_logic_vector(11 downto 0) := x"F14"; -- [MRO] Hardware thread ID
+
+    -- Machine trap setup
+    constant CSR_MSTATUS    : std_logic_vector(11 downto 0) := x"300"; -- [MRW] Machine status register
+    constant CSR_MISA       : std_logic_vector(11 downto 0) := x"301"; -- [MRW] ISA and extensions
+    constant CSR_MIE        : std_logic_vector(11 downto 0) := x"304"; -- [MRW] Machine interrupt-enable register
+    constant CSR_MTVEC      : std_logic_vector(11 downto 0) := x"305"; -- [MRW] Machine trap-handler base address
+    -- constant CSR_MCOUNTEREN : std_logic_vector(11 downto 0) := x"306"; -- [MRW] Machine counter enable.
+
+    -- Machine trap handling
+    constant CSR_MSCRATCH  : std_logic_vector(11 downto 0) := x"340"; -- [MRW] Scratch register for machine trap handlers.
+    constant CSR_MEPC      : std_logic_vector(11 downto 0) := x"341"; -- [MRW] Machine exception program counter
+    constant CSR_MCAUSE    : std_logic_vector(11 downto 0) := x"342"; -- [MRW] Machine trap cause
+    constant CSR_MTVAL     : std_logic_vector(11 downto 0) := x"343"; -- [MRW] Machine bad address or instruction
+    constant CSR_MIP       : std_logic_vector(11 downto 0) := x"344"; -- [MRW] Machine interrupt pending
+
+    -- Debug trigger
+    -- constant CSR_TSELECT   : std_logic_vector(11 downto 0) := x"7A0";
+    -- constant CSR_TDATA1    : std_logic_vector(11 downto 0) := x"7A1";
+    -- constant CSR_TDATA2    : std_logic_vector(11 downto 0) := x"7A2";
+    -- constant CSR_TDATA3    : std_logic_vector(11 downto 0) := x"7A3";
+    -- constant CSR_MCONTEXT  : std_logic_vector(11 downto 0) := x"7A8";
+    -- constant CSR_SCONTEXT  : std_logic_vector(11 downto 0) := x"7AA";
+
+    -- Const CSR values
+    constant CSR_MVENDORID_VALUE  : std_logic_vector(31 downto 0) := (others => '0');
+    constant CSR_MARCHID_VALUE    : std_logic_vector(31 downto 0) := x"4C_41_47_41";    -- LAGA
+    constant CSR_MIMPID_VALUE     : std_logic_vector(31 downto 0) := (others => '0');   -- Version ?
+    constant CSR_MHARTID_VALUE    : std_logic_vector(31 downto 0) := (others => '0');   -- Mono-thread
+
+
+    type csr_opcode_t is (
+        CSR_OPCODE_READ,
+        CSR_OPCODE_WRITE,
+        CSR_OPCODE_SET,
+        CSR_OPCODE_CLEAR
     );
 
     -----------------------------------------------------
@@ -184,6 +232,9 @@ package pkg_lagarisc is
             -- RD
             EXEC_RD_ID              : out std_logic_vector(4 downto 0);
             EXEC_RD_WE              : out std_logic;
+            -- CSR
+            EXEC_CSR_ID             : out std_logic_vector(11 downto 0);
+            EXEC_CSR_OPCODE         : out csr_opcode_t;
             -- ALU
             EXEC_ALU_OPC            : out alu_opcode_t;
             EXEC_ALU_IMM            : out std_logic_vector(31 downto 0);
@@ -246,6 +297,9 @@ package pkg_lagarisc is
             -- MEM
             DC_MEM_EN               : in std_logic;
             DC_MEM_WE               : in std_logic;
+            -- CSR
+            DC_CSR_ID               : in std_logic_vector(11 downto 0);
+            DC_CSR_OPCODE           : in csr_opcode_t;
             -- WB MUX
             DC_WB_MUX               : in mux_wb_src_t;
 
@@ -269,6 +323,9 @@ package pkg_lagarisc is
             MEM_MEM_DIN             : out std_logic_vector(31 downto 0);
             MEM_MEM_EN              : out std_logic;
             MEM_MEM_WE              : out std_logic;
+            -- CSR
+            MEM_CSR_ID              : out std_logic_vector(11 downto 0);
+            MEM_CSR_OPCODE          : out csr_opcode_t;
             -- WB MUX
             MEM_WB_MUX              : out mux_wb_src_t;
 
@@ -310,6 +367,9 @@ package pkg_lagarisc is
             EXEC_MEM_DIN            : in std_logic_vector(31 downto 0);
             EXEC_MEM_EN             : in std_logic;
             EXEC_MEM_WE             : in std_logic;
+            -- CSR
+            EXEC_CSR_ID             : in std_logic_vector(11 downto 0);
+            EXEC_CSR_OPCODE         : in csr_opcode_t;
             -- WB MUX
             EXEC_WB_MUX             : in mux_wb_src_t;
 
@@ -324,6 +384,9 @@ package pkg_lagarisc is
             -- MEM
             WB_MEM_DOUT             : out std_logic_vector(31 downto 0);
             WB_MEM_WE               : out std_logic;
+            -- CSR
+            WB_CSR_ID               : out std_logic_vector(11 downto 0);
+            WB_CSR_OPCODE           : out csr_opcode_t;
             -- WB MUX
             WB_WB_MUX               : out mux_wb_src_t;
 
@@ -350,6 +413,9 @@ package pkg_lagarisc is
             -- MEM
             MEM_MEM_DOUT            : in std_logic_vector(31 downto 0);
             MEM_MEM_WE              : in std_logic;
+            -- CSR
+            MEM_CSR_ID              : in std_logic_vector(11 downto 0);
+            MEM_CSR_OPCODE          : in csr_opcode_t;
             -- WB
             MEM_WB_MUX              : in mux_wb_src_t;
 
@@ -411,6 +477,9 @@ package pkg_lagarisc is
             -- MEM
             EXEC_MEM_EN             : out std_logic;
             EXEC_MEM_WE             : out std_logic;
+            -- CSR
+            EXEC_CSR_ID             : out std_logic_vector(11 downto 0);
+            EXEC_CSR_OPCODE         : out csr_opcode_t;
             -- WB MUX
             EXEC_WB_MUX             : out mux_wb_src_t
         );
@@ -446,6 +515,7 @@ package pkg_lagarisc is
             STALL                   : in std_logic;
 
             DECODE_OUT_VALID        : in std_logic;
+            EXEC_IN_READY           : in std_logic;
             ALU_IN_READY            : out std_logic;
             ALU_OUT_VALID           : out std_logic;
             MEM_IN_READY            : in std_logic;
@@ -453,19 +523,36 @@ package pkg_lagarisc is
             -- ==== > DECODE ====
             -- PC
             DC_PROGRAM_COUNTER      : in std_logic_vector(31 downto 0);
-            -- INST
-            DC_ALU_IMM              : in std_logic_vector(31 downto 0);
             -- RSX
             DC_RS1_DATA             : in std_logic_vector(31 downto 0);
             DC_RS2_DATA             : in std_logic_vector(31 downto 0);
             -- ALU
             DC_ALU_OPC              : in alu_opcode_t;
+            DC_ALU_IMM              : in std_logic_vector(31 downto 0);
             DC_ALU_SHAMT            : in std_logic_vector(4 downto 0);
             DC_ALU_OP1_MUX          : in mux_alu_op1_t;
             DC_ALU_OP2_MUX          : in mux_alu_op2_t;
 
             -- ==== MEM > ====
             MEM_ALU_RESULT          : out std_logic_vector(31 downto 0)
+        );
+    end component;
+
+    component lagarisc_csr is
+        port (
+            CLK  : in std_logic;
+            RST  : in std_logic;
+
+            -- ==== > WB ====
+            MEM_CSR_ID               : in std_logic_vector(11 downto 0);
+            -- INST
+            MEM_CSR_OPCODE           : in csr_opcode_t;
+            -- RS1 (or immediat)
+            MEM_RS1_DATA             : in std_logic_vector(31 downto 0);
+
+            -- ==== REGFILE > ====
+            DC_CSR_WE               : out std_logic;
+            DC_CSR_DOUT             : out std_logic_vector(31 downto 0)
         );
     end component;
 

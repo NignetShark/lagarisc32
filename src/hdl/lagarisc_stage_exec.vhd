@@ -48,6 +48,9 @@ entity lagarisc_stage_exec is
         -- MEM
         DC_MEM_EN               : in std_logic;
         DC_MEM_WE               : in std_logic;
+        -- CSR
+        DC_CSR_ID               : in std_logic_vector(11 downto 0);
+        DC_CSR_OPCODE           : in csr_opcode_t;
         -- WB MUX
         DC_WB_MUX               : in mux_wb_src_t;
 
@@ -71,6 +74,9 @@ entity lagarisc_stage_exec is
         MEM_MEM_DIN             : out std_logic_vector(31 downto 0);
         MEM_MEM_EN              : out std_logic;
         MEM_MEM_WE              : out std_logic;
+        -- CSR
+        MEM_CSR_ID              : out std_logic_vector(11 downto 0);
+        MEM_CSR_OPCODE          : out csr_opcode_t;
         -- WB MUX
         MEM_WB_MUX              : out mux_wb_src_t;
 
@@ -82,11 +88,13 @@ entity lagarisc_stage_exec is
 end entity;
 
 architecture rtl of lagarisc_stage_exec is
+    signal exec_in_ready_int : std_logic;
     signal alu_in_ready : std_logic;
     signal fwd_rs1_data : std_logic_vector(31 downto 0);
     signal fwd_rs2_data : std_logic_vector(31 downto 0);
 begin
-    EXEC_IN_READY <= alu_in_ready;
+    exec_in_ready_int <= alu_in_ready;
+    EXEC_IN_READY <= exec_in_ready_int;
 
     inst_alu : lagarisc_alu
         port map(
@@ -97,6 +105,7 @@ begin
             STALL                   => STALL,
 
             DECODE_OUT_VALID        => DECODE_OUT_VALID,
+            EXEC_IN_READY           => exec_in_ready_int,
             ALU_IN_READY            => alu_in_ready,
             ALU_OUT_VALID           => EXEC_OUT_VALID,
             MEM_IN_READY            => MEM_IN_READY,
@@ -117,6 +126,10 @@ begin
             MEM_ALU_RESULT          => MEM_ALU_RESULT
         );
 
+    -------------------------------------
+    -- Forwarding process
+    -- Use result from upper stages during data hazards
+    -------------------------------------
     P_FORWARDING_UNIT : process (
         DC_RS1_DATA,
         DC_RS2_DATA,
@@ -157,6 +170,10 @@ begin
         end if;
     end process;
 
+    ----------------------------------------
+    -- Branching process
+    -- Compute next PC for branching operations
+    ----------------------------------------
     P_BRANCH : process (CLK)
         variable op1 : std_logic_vector(31 downto 0);
     begin
@@ -197,19 +214,22 @@ begin
                 -- INST
                 MEM_INST_F3     <= (others => '-');
                 -- RD
-                MEM_RD_ID       <= (others => '0');
+                MEM_RD_ID       <= (others => '-');
                 MEM_RD_WE       <= '0';
                 -- MEM
                 MEM_MEM_DIN     <= (others => '-');
                 MEM_MEM_EN      <= '0';
                 MEM_MEM_WE      <= '0';
+                -- CSR
+                MEM_CSR_ID      <= (others => '-');
+                MEM_CSR_OPCODE  <= CSR_OPCODE_READ;
                 -- WB MUX
                 MEM_WB_MUX      <= MUX_WB_SRC_ALU;
             else
 
                 if STALL = '1' then
                     null;
-                elsif (alu_in_ready = '1') and (DECODE_OUT_VALID = '1')  then
+                elsif (exec_in_ready_int = '1') and (DECODE_OUT_VALID = '1')  then
                     -- PC
                     MEM_BRANCH_OP   <= DC_BRANCH_OP;
                     -- INST
@@ -221,6 +241,9 @@ begin
                     MEM_MEM_DIN     <= DC_RS2_DATA;
                     MEM_MEM_EN      <= DC_MEM_EN;
                     MEM_MEM_WE      <= DC_MEM_WE;
+                    -- CSR
+                    MEM_CSR_ID      <= DC_CSR_ID;
+                    MEM_CSR_OPCODE  <= DC_CSR_OPCODE;
                     -- WB MUX
                     MEM_WB_MUX      <= DC_WB_MUX;
                 end if;
@@ -229,6 +252,7 @@ begin
                     MEM_RD_WE       <= '0';
                     MEM_MEM_EN      <= '0';
                     MEM_MEM_WE      <= '0';
+                    MEM_CSR_OPCODE  <= CSR_OPCODE_READ;
                 end if;
             end if;
         end if;

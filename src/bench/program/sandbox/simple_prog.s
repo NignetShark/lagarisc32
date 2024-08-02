@@ -1,10 +1,10 @@
 
 start:
-li t0, 3
-srli t0, t0, 1
-li t1, 1
-li t2, 2
-j start
+# li t0, 3
+# srli t0, t0, 1
+# li t1, 1
+# li t2, 2
+# j start
 # addi t0, t0, 1;
 # j start
 
@@ -25,5 +25,10 @@ j start
 #    addi a0, a0, 1
 #    j while
 # end_while:
+
+csrwi  mstatus, 0x1
+csrwi  mstatus, 0x2
+csrwi  mstatus, 0x3
+csrrwi t0, mstatus, 0x4
 
 

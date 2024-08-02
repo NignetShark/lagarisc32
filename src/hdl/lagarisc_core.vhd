@@ -66,6 +66,8 @@ architecture rtl of lagarisc_core is
     signal exec_alu_op2_mux         : mux_alu_op2_t;
     signal exec_mem_en              : std_logic;
     signal exec_mem_we              : std_logic;
+    signal exec_csr_id              : std_logic_vector(11 downto 0);
+    signal exec_csr_opcode          : csr_opcode_t;
     signal exec_wb_mux              : mux_wb_src_t;
 
     signal mem_pc_taken             : std_logic_vector(31 downto 0);
@@ -78,6 +80,8 @@ architecture rtl of lagarisc_core is
     signal mem_mem_din              : std_logic_vector(31 downto 0);
     signal mem_mem_en               : std_logic;
     signal mem_mem_we               : std_logic;
+    signal mem_csr_id               : std_logic_vector(11 downto 0);
+    signal mem_csr_opcode           : csr_opcode_t;
     signal mem_wb_mux               : mux_wb_src_t;
 
     signal wb_pc_not_taken          : std_logic_vector(31 downto 0);
@@ -86,6 +90,8 @@ architecture rtl of lagarisc_core is
     signal wb_alu_result            : std_logic_vector(31 downto 0);
     signal wb_mem_dout              : std_logic_vector(31 downto 0);
     signal wb_mem_we                : std_logic;
+    signal wb_csr_id                : std_logic_vector(11 downto 0);
+    signal wb_csr_opcode            : csr_opcode_t;
     signal wb_wb_mux                : mux_wb_src_t;
 
     signal dc_rd_id                 : std_logic_vector(4 downto 0);
@@ -200,6 +206,9 @@ begin
             -- MEM
             EXEC_MEM_EN                 => exec_mem_en,
             EXEC_MEM_WE                 => exec_mem_we,
+            -- CSR
+            EXEC_CSR_ID                 => exec_csr_id,
+            EXEC_CSR_OPCODE             => exec_csr_opcode,
             -- WB MUX
             EXEC_WB_MUX                 => exec_wb_mux,
 
@@ -252,6 +261,9 @@ begin
             -- MEM
             DC_MEM_EN               => exec_mem_en,
             DC_MEM_WE               => exec_mem_we,
+            -- CSR
+            DC_CSR_ID               => exec_csr_id,
+            DC_CSR_OPCODE           => exec_csr_opcode,
             -- WB
             DC_WB_MUX               => exec_wb_mux,
 
@@ -275,6 +287,9 @@ begin
             MEM_MEM_DIN             => mem_mem_din,
             MEM_MEM_EN              => mem_mem_en,
             MEM_MEM_WE              => mem_mem_we,
+            -- CSR
+            MEM_CSR_ID              => mem_csr_id,
+            MEM_CSR_OPCODE          => mem_csr_opcode,
             -- WB MUX
             MEM_WB_MUX              => mem_wb_mux,
 
@@ -315,6 +330,9 @@ begin
             EXEC_MEM_DIN            => mem_mem_din,
             EXEC_MEM_EN             => mem_mem_en,
             EXEC_MEM_WE             => mem_mem_we,
+            -- CSR
+            EXEC_CSR_ID             => mem_csr_id,
+            EXEC_CSR_OPCODE         => mem_csr_opcode,
             -- WB MUX
             EXEC_WB_MUX             => mem_wb_mux,
 
@@ -329,6 +347,9 @@ begin
             -- MEM
             WB_MEM_DOUT             => wb_mem_dout,
             WB_MEM_WE               => wb_mem_we,
+            -- CSR
+            WB_CSR_ID               => wb_csr_id,
+            WB_CSR_OPCODE           => wb_csr_opcode,
             -- WB MUX
             WB_WB_MUX               => wb_wb_mux,
 
@@ -354,6 +375,9 @@ begin
             -- MEM
             MEM_MEM_DOUT        => wb_mem_dout,
             MEM_MEM_WE          => wb_mem_we,
+            -- CSR
+            MEM_CSR_ID          => wb_csr_id,
+            MEM_CSR_OPCODE      => wb_csr_opcode,
             -- WB
             MEM_WB_MUX          => wb_wb_mux,
 

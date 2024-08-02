@@ -36,6 +36,9 @@ entity lagarisc_stage_mem is
         EXEC_MEM_DIN            : in std_logic_vector(31 downto 0);
         EXEC_MEM_EN             : in std_logic;
         EXEC_MEM_WE             : in std_logic;
+        -- CSR
+        EXEC_CSR_ID             : in std_logic_vector(11 downto 0);
+        EXEC_CSR_OPCODE         : in csr_opcode_t;
         -- WB MUX
         EXEC_WB_MUX             : in mux_wb_src_t;
 
@@ -50,6 +53,9 @@ entity lagarisc_stage_mem is
         -- MEM
         WB_MEM_DOUT             : out std_logic_vector(31 downto 0);
         WB_MEM_WE               : out std_logic;
+        -- CSR
+        WB_CSR_ID               : out std_logic_vector(11 downto 0);
+        WB_CSR_OPCODE           : out csr_opcode_t;
         -- WB MUX
         WB_WB_MUX               : out mux_wb_src_t;
 
@@ -87,11 +93,13 @@ begin
                 -- MEM
                 WB_MEM_DOUT             <= (others => '-');
                 WB_MEM_WE               <= '0';
+                -- CSR
+                WB_CSR_ID               <= (others => '-');
+                WB_CSR_OPCODE           <= CSR_OPCODE_READ;
                 -- WB MUX
                 WB_WB_MUX               <= MUX_WB_SRC_ALU;
             else
                 v_branch_taken := '0';
-
 
                 if(STALL = '1') then
                     null;
@@ -107,6 +115,9 @@ begin
                     WB_RD_WE                <= EXEC_RD_WE;
                     -- ALU
                     WB_ALU_RESULT           <= EXEC_ALU_RESULT;
+                    -- CSR
+                    WB_CSR_ID               <= EXEC_CSR_ID;
+                    WB_CSR_OPCODE           <= EXEC_CSR_OPCODE;
                     -- WB MUX
                     WB_WB_MUX               <= EXEC_WB_MUX;
 
@@ -130,12 +141,14 @@ begin
                         -- Invalid WB data
                         WB_RD_WE            <= '0';
                         WB_MEM_WE           <= '0';
+                        WB_CSR_OPCODE       <= CSR_OPCODE_READ;
                     end if;
                 else
                     mem_out_valid_int   <= '0';
                     SUP_BRANCH_TAKEN    <= '0';
                     WB_RD_WE            <= '0';
                     WB_MEM_WE           <= '0';
+                    WB_CSR_OPCODE       <= CSR_OPCODE_READ;
                 end if;
 
                 if FLUSH = '1' then
@@ -143,6 +156,7 @@ begin
                     SUP_BRANCH_TAKEN    <= '0';
                     WB_RD_WE            <= '0';
                     WB_MEM_WE           <= '0';
+                    WB_CSR_OPCODE       <= CSR_OPCODE_READ;
                 end if;
 
             end if;

@@ -15,6 +15,7 @@ entity lagarisc_alu is
         STALL                   : in std_logic;
 
         DECODE_OUT_VALID        : in std_logic;
+        EXEC_IN_READY           : in std_logic; -- Stage readiness
         ALU_IN_READY            : out std_logic;
         ALU_OUT_VALID           : out std_logic;
         MEM_IN_READY            : in std_logic;
@@ -22,13 +23,12 @@ entity lagarisc_alu is
         -- ==== > DECODE ====
         -- PC
         DC_PROGRAM_COUNTER      : in std_logic_vector(31 downto 0);
-        -- INST
-        DC_ALU_IMM              : in std_logic_vector(31 downto 0);
         -- RSX
         DC_RS1_DATA             : in std_logic_vector(31 downto 0);
         DC_RS2_DATA             : in std_logic_vector(31 downto 0);
         -- ALU
         DC_ALU_OPC              : in alu_opcode_t;
+        DC_ALU_IMM              : in std_logic_vector(31 downto 0);
         DC_ALU_SHAMT            : in std_logic_vector(4 downto 0);
         DC_ALU_OP1_MUX          : in mux_alu_op1_t;
         DC_ALU_OP2_MUX          : in mux_alu_op2_t;
@@ -103,7 +103,7 @@ begin
 
                     case alu_fsm is
                         when ST_ALU_FETCH =>
-                            if DECODE_OUT_VALID = '1' then
+                            if (DECODE_OUT_VALID = '1') and (EXEC_IN_READY = '1') then
                                 -- By default, an output will be generated
                                 alu_out_valid_int <= '1';
 
@@ -179,8 +179,10 @@ begin
                                     --------------------------------------------
                                     -- Extended operation
                                     --------------------------------------------
-                                    when ALU_OPCODE_ZERO =>
-                                        MEM_ALU_RESULT <= (others => '0');
+                                    when ALU_OPCODE_OP1 =>
+                                        MEM_ALU_RESULT <= op1;
+                                    when ALU_OPCODE_OP2 =>
+                                        MEM_ALU_RESULT <= op2;
                                     when ALU_OPCODE_SEQ =>
                                         MEM_ALU_RESULT <= (0 => logic_is_equal, others => '0');
                                     when ALU_OPCODE_SNE =>

@@ -52,6 +52,9 @@ entity lagarisc_decode is
         -- MEM
         EXEC_MEM_EN             : out std_logic;
         EXEC_MEM_WE             : out std_logic;
+        -- CSR
+        EXEC_CSR_ID             : out std_logic_vector(11 downto 0);
+        EXEC_CSR_OPCODE         : out csr_opcode_t;
         -- WB MUX
         EXEC_WB_MUX             : out mux_wb_src_t
     );
@@ -87,6 +90,7 @@ architecture rtl of lagarisc_decode is
     signal imm_b_signed     : std_logic_vector(31 downto 0);
     signal imm_b_unsigned   : std_logic_vector(31 downto 0);
     signal imm_j_signed     : std_logic_vector(31 downto 0);
+    signal imm_csr          : std_logic_vector(31 downto 0);
 
     -------------------------------------------------
     -- Function
@@ -98,7 +102,7 @@ architecture rtl of lagarisc_decode is
     return alu_opcode_t is
         variable opcode : alu_opcode_t;
     begin
-        opcode := ALU_OPCODE_ZERO; -- Used as NOP
+        opcode := ALU_OPCODE_OP2; -- Used as NOP
         case p_inst_f3 is
             when C_F3_ADD_SUB =>
                 if (p_inst_f7(5) = '1') and (is_immediate = false) then -- No substration with immediate
@@ -135,7 +139,7 @@ architecture rtl of lagarisc_decode is
     return alu_opcode_t is
         variable opcode : alu_opcode_t;
     begin
-        opcode := ALU_OPCODE_ZERO; -- Used as NOP
+        opcode := ALU_OPCODE_OP2; -- Used as NOP
         case p_inst_f3 is
             when C_F3_BEQ   =>
                 opcode := ALU_OPCODE_SEQ;
@@ -214,13 +218,16 @@ begin
     imm_b_signed      <= std_logic_vector(resize(signed(imm_b), 32));
     imm_b_unsigned    <= std_logic_vector(resize(unsigned(imm_b), 32));
     imm_j_signed      <= std_logic_vector(resize(signed(imm_j), 32));
+    imm_csr           <= std_logic_vector(resize(unsigned(inst_rs1), 32));
 
-    REGFILE_RS1_ID      <= inst_rs1;
-    REGFILE_RS2_ID      <= inst_rs2;
-
+    -- Control & command
     decode_in_ready_int    <= EXEC_IN_READY or (not decode_out_valid_int);
     DECODE_IN_READY        <= decode_in_ready_int;
     DECODE_OUT_VALID       <= decode_out_valid_int;
+
+    -- Output assignment
+    REGFILE_RS1_ID      <= inst_rs1;
+    REGFILE_RS2_ID      <= inst_rs2;
 
     process(CLK)
     begin
@@ -247,9 +254,11 @@ begin
                 EXEC_RD_ID              <= (others => '-');
                 EXEC_RD_WE              <= '0';
 
+                -- IMM
+                EXEC_ALU_IMM                <= (others => '-');
+
                 -- ALU
-                EXEC_ALU_OPC            <= ALU_OPCODE_ZERO;
-                EXEC_ALU_IMM            <= (others => '-');
+                EXEC_ALU_OPC            <= ALU_OPCODE_OP2;
                 EXEC_ALU_SHAMT          <= (others => '-');
                 EXEC_ALU_OP1_MUX        <= MUX_ALU_OP1_RS1;
                 EXEC_ALU_OP2_MUX        <= MUX_ALU_OP2_RS2;
@@ -257,6 +266,10 @@ begin
                 -- MEM
                 EXEC_MEM_EN             <= '0';
                 EXEC_MEM_WE             <= '0';
+
+                -- CSR
+                EXEC_CSR_ID             <= imm_i;
+                EXEC_CSR_OPCODE         <= CSR_OPCODE_READ;
 
                 -- WB MUX
                 EXEC_WB_MUX             <= MUX_WB_SRC_ALU;
@@ -287,7 +300,7 @@ begin
                     EXEC_RD_WE              <= '0';
 
                     -- ALU
-                    EXEC_ALU_OPC            <= ALU_OPCODE_ZERO;
+                    EXEC_ALU_OPC            <= ALU_OPCODE_OP2;
                     EXEC_ALU_SHAMT          <= imm_shamt;
                     EXEC_ALU_OP1_MUX        <= MUX_ALU_OP1_RS1;
                     EXEC_ALU_OP2_MUX        <= MUX_ALU_OP2_RS2;
@@ -295,6 +308,9 @@ begin
                     -- MEM
                     EXEC_MEM_EN             <= '0';
                     EXEC_MEM_WE             <= '0';
+
+                    -- CSR
+                    EXEC_CSR_OPCODE         <= CSR_OPCODE_READ;
 
                     -- WB MUX
                     EXEC_WB_MUX             <= MUX_WB_SRC_ALU;
@@ -305,7 +321,7 @@ begin
                     case inst_opcode is
                         -- LUI : Load Upper Immediat
                         when C_OP_LUI =>
-                            EXEC_ALU_IMM        <= imm_u;
+                            EXEC_ALU_IMM            <= imm_u;
                             EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
                             EXEC_RD_WE          <= '1';
@@ -340,6 +356,7 @@ begin
                             EXEC_BRANCH_SRC     <= MUX_BRANCH_SRC_PC;
                             EXEC_BRANCH_IMM     <= imm_j_signed;
 
+                            -- Compute RD = PC + 4
                             EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
                             EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_PC;
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
@@ -350,9 +367,39 @@ begin
                             EXEC_BRANCH_SRC     <= MUX_BRANCH_SRC_RS1;
                             EXEC_BRANCH_IMM     <= imm_i_signed;
 
+                            -- Compute RD = PC + 4
                             EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
                             EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_PC;
+                            EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
                             EXEC_ALU_IMM        <= C_CONSTANT_4;
+
+                        when C_OP_SYSTEM =>
+                            if inst_f3 = "000" then -- Non CSR related SYSTEM opcodes
+                                null;
+                            else
+                                case inst_f3(1 downto 0) is
+                                    when "01" => EXEC_CSR_OPCODE <= CSR_OPCODE_WRITE;
+                                    when "10" => EXEC_CSR_OPCODE <= CSR_OPCODE_SET;
+                                    when "11" => EXEC_CSR_OPCODE <= CSR_OPCODE_CLEAR;
+                                    when others => null; -- Illegal opcode
+                                end case;
+
+                                -- Select between RS1 & IMM
+                                EXEC_ALU_IMM        <= imm_csr;
+                                EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_RS1;
+                                EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
+
+                                if inst_f3(2) = '1' then
+                                    -- Immediat
+                                    EXEC_ALU_OPC    <= ALU_OPCODE_OP2;
+                                    else
+                                    -- RS1
+                                    EXEC_ALU_OPC    <= ALU_OPCODE_OP1;
+                                end if;
+
+                                EXEC_WB_MUX <= MUX_WB_SRC_CSR;
+                                EXEC_RD_WE  <= '1';
+                            end if;
 
                         when others =>
                             null;
