@@ -14,11 +14,14 @@ entity lagarisc_stage_mem is
         RST                     : in std_logic;
 
         -- ==== Control & command ====
-        FLUSH                   : in std_logic;
         STALL                   : in std_logic;
+        FLUSH                   : in std_logic;
+        FLUSH_ACK               : out std_logic; -- Acknowledge flush (defered flush)
 
         EXEC_OUT_VALID          : in std_logic;
         MEM_IN_READY            : out std_logic;
+        -- WB stage is always read
+        -- Mem output is always valid (at least control signals)
 
         -- ==== > EXEC ====
         -- PC
@@ -62,25 +65,101 @@ entity lagarisc_stage_mem is
         -- ==== SUPERVISOR > ====
         -- PC
         SUP_BRANCH_TAKEN        : out std_logic;
-        SUP_PC_TAKEN            : out std_logic_vector(31 downto 0)
+        SUP_PC_TAKEN            : out std_logic_vector(31 downto 0);
+
+        -- ==== > AXI4L interface > ====
+        -- write access
+        AXI_AWVALID             : out std_logic;
+        AXI_AWREADY             : in  std_logic;
+        AXI_AWADDR              : out std_logic_vector(31 downto 0);
+        AXI_AWPROT              : out std_logic_vector(2 downto 0);
+        AXI_WVALID              : out std_logic;
+        AXI_WREADY              : in  std_logic;
+        AXI_WDATA               : out std_logic_vector(31 downto 0);
+        AXI_WSTRB               : out std_logic_vector(3 downto 0);
+        AXI_BVALID              : in  std_logic;
+        AXI_BREADY              : out std_logic;
+        AXI_BRESP               : in  std_logic_vector(1 downto 0);
+        --read access
+        AXI_ARVALID             : out std_logic;
+        AXI_ARREADY             : in  std_logic;
+        AXI_ARADDR              : out std_logic_vector(31 downto 0);
+        AXI_ARPROT              : out std_logic_vector(2 downto 0);
+        AXI_RVALID              : in  std_logic;
+        AXI_RREADY              : out std_logic;
+        AXI_RDATA               : in  std_logic_vector(31 downto 0);
+        AXI_RESP                : in  std_logic_vector(1 downto 0)
     );
 end entity;
 
 architecture rtl of lagarisc_stage_mem is
-    signal mem_out_valid_int : std_logic;
     signal mem_in_ready_int : std_logic;
+    signal mem_out_valid_int : std_logic;
+    signal lsu_in_ready_int : std_logic;
+    signal lsu_out_valid_int : std_logic;
+
+    signal valid_overload : std_logic;
 
 begin
-    mem_in_ready_int <= '1' or (not mem_out_valid_int);
+    mem_in_ready_int <= lsu_in_ready_int and (not STALL);
+    mem_out_valid_int <= lsu_out_valid_int or valid_overload;
     MEM_IN_READY <= mem_in_ready_int;
+
+    inst_lsu : lagarisc_lsu
+        port map(
+            CLK  => CLK,
+            RST  => RST,
+
+            -- ==== Control & command ====
+            FLUSH                   => FLUSH,
+            FLUSH_ACK               => FLUSH_ACK, -- Acknowledge flush (defered flush)
+
+            EXEC_OUT_VALID          => EXEC_OUT_VALID,
+            LSU_IN_READY            => lsu_in_ready_int,
+            MEM_IN_READY            => mem_in_ready_int,
+            LSU_OUT_VALID           => lsu_out_valid_int,
+
+            -- INST
+            EXEC_INST_F3            => EXEC_INST_F3,
+            -- MEM
+            EXEC_MEM_ADDR           => EXEC_ALU_RESULT, -- Memory address is computed from ALU
+            EXEC_MEM_DIN            => EXEC_MEM_DIN,
+            EXEC_MEM_EN             => EXEC_MEM_EN,
+            EXEC_MEM_WE             => EXEC_MEM_WE,
+
+            -- ==== WB > ====
+            WB_MEM_DOUT             => WB_MEM_DOUT,
+            WB_MEM_WE               => WB_MEM_WE,
+
+            -- ==== > AXI4L interface > ====
+            -- write access
+            AXI_AWVALID             => AXI_AWVALID,
+            AXI_AWREADY             => AXI_AWREADY,
+            AXI_AWADDR              => AXI_AWADDR,
+            AXI_AWPROT              => AXI_AWPROT,
+            AXI_WVALID              => AXI_WVALID,
+            AXI_WREADY              => AXI_WREADY,
+            AXI_WDATA               => AXI_WDATA,
+            AXI_WSTRB               => AXI_WSTRB,
+            AXI_BVALID              => AXI_BVALID,
+            AXI_BREADY              => AXI_BREADY,
+            AXI_BRESP               => AXI_BRESP,
+            --read access
+            AXI_ARVALID             => AXI_ARVALID,
+            AXI_ARREADY             => AXI_ARREADY,
+            AXI_ARADDR              => AXI_ARADDR,
+            AXI_ARPROT              => AXI_ARPROT,
+            AXI_RVALID              => AXI_RVALID,
+            AXI_RREADY              => AXI_RREADY,
+            AXI_RDATA               => AXI_RDATA,
+            AXI_RESP                => AXI_RESP
+        );
 
     process (CLK)
         variable v_branch_taken : std_logic;
     begin
         if rising_edge(CLK) then
             if RST = '1' then
-                -- Ctrl & cmd
-                mem_out_valid_int       <= '0';
                 -- PC
                 SUP_BRANCH_TAKEN        <= '0';
                 SUP_PC_TAKEN            <= (others => '-');
@@ -90,29 +169,31 @@ begin
                 WB_RD_WE                <= '0';
                 -- ALU
                 WB_ALU_RESULT           <= (others => '-');
-                -- MEM
-                WB_MEM_DOUT             <= (others => '-');
-                WB_MEM_WE               <= '0';
                 -- CSR
                 WB_CSR_ID               <= (others => '-');
                 WB_CSR_OPCODE           <= CSR_OPCODE_READ;
                 -- WB MUX
                 WB_WB_MUX               <= MUX_WB_SRC_ALU;
+
+                -- Overload validity for non LSU operations
+                valid_overload <= '0';
             else
                 v_branch_taken := '0';
 
-                if(STALL = '1') then
+                if STALL = '1' then
+                    -- Stalling memory stage can be required by the supervision
+                    -- when fetch stage is not ready and a branch must be taken
                     null;
                 elsif (mem_in_ready_int = '1') and (EXEC_OUT_VALID = '1') then
-                    -- Default
-                    mem_out_valid_int <= '1';
+                    -- When not LSU related, overload validity
+                    valid_overload <= not EXEC_MEM_EN;
 
                     -------------------------------------------------
                     -- Register forwarding
                     -------------------------------------------------
                     -- RD
                     WB_RD_ID                <= EXEC_RD_ID;
-                    WB_RD_WE                <= EXEC_RD_WE;
+                    WB_RD_WE                <= EXEC_RD_WE;          -- Note : RD_WE is not used by WB stage when WB_MUX = MUX_WB_SRC_MEM
                     -- ALU
                     WB_ALU_RESULT           <= EXEC_ALU_RESULT;
                     -- CSR
@@ -132,30 +213,28 @@ begin
                             v_branch_taken := EXEC_ALU_RESULT(0);
                         when BRANCH_OP_UNCOND =>
                             v_branch_taken := '1';
-                        when others =>
+                        when others => -- BRANCH_NOP
                             v_branch_taken := '0';
                     end case;
+
                     SUP_BRANCH_TAKEN <= v_branch_taken;
 
-                    if v_branch_taken = '1' then
-                        -- Invalid WB data
-                        WB_RD_WE            <= '0';
-                        WB_MEM_WE           <= '0';
-                        WB_CSR_OPCODE       <= CSR_OPCODE_READ;
-                    end if;
+                    -- if v_branch_taken = '1' then
+                    --     -- Invalid WB
+                    --     WB_RD_WE            <= '0';
+                    --     WB_MEM_WE           <= '0';
+                    --     WB_CSR_OPCODE       <= CSR_OPCODE_READ;
+                    -- end if;
+
                 else
-                    mem_out_valid_int   <= '0';
                     SUP_BRANCH_TAKEN    <= '0';
                     WB_RD_WE            <= '0';
-                    WB_MEM_WE           <= '0';
                     WB_CSR_OPCODE       <= CSR_OPCODE_READ;
                 end if;
 
                 if FLUSH = '1' then
-                    mem_out_valid_int   <= '0';
                     SUP_BRANCH_TAKEN    <= '0';
                     WB_RD_WE            <= '0';
-                    WB_MEM_WE           <= '0';
                     WB_CSR_OPCODE       <= CSR_OPCODE_READ;
                 end if;
 

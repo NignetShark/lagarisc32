@@ -12,7 +12,6 @@ entity lagarisc_alu is
 
         -- ==== Control & command ====
         FLUSH                   : in std_logic;
-        STALL                   : in std_logic;
 
         DECODE_OUT_VALID        : in std_logic;
         EXEC_IN_READY           : in std_logic; -- Stage readiness
@@ -88,6 +87,7 @@ begin
             if RST = '1' then
                 alu_fsm <= ST_ALU_FETCH;
                 alu_busy_int <= '0';
+                alu_out_valid_int <= '0';
 
                 MEM_ALU_RESULT <= (others => '-');
 
@@ -96,130 +96,127 @@ begin
                 bitshift_msb        <= '-';
                 bitshift_reverse    <= '-';
             else
+                case alu_fsm is
+                    when ST_ALU_FETCH =>
+                        if (DECODE_OUT_VALID = '1') and (EXEC_IN_READY = '1') then
+                            -- By default, an output will be generated
+                            alu_out_valid_int <= '1';
 
-                if STALL = '1' then
-                    null;
-                else
+                            case DC_ALU_OPC is
+                                --------------------------------------------
+                                -- Addition & substraction
+                                --------------------------------------------
+                                when ALU_OPCODE_ADD | ALU_OPCODE_SUB =>
+                                    if DC_ALU_OPC = ALU_OPCODE_SUB then
+                                        -- Substraction
+                                        v_tmp := op2_comp2;
+                                    else
+                                        -- Addition
+                                        v_tmp := op2;
+                                    end if;
+                                    MEM_ALU_RESULT <= std_logic_vector(unsigned(op1) + unsigned(v_tmp));
 
-                    case alu_fsm is
-                        when ST_ALU_FETCH =>
-                            if (DECODE_OUT_VALID = '1') and (EXEC_IN_READY = '1') then
-                                -- By default, an output will be generated
-                                alu_out_valid_int <= '1';
+                                --------------------------------------------
+                                -- Set less than (signed/unsigned)
+                                --------------------------------------------
+                                when ALU_OPCODE_SLT =>
+                                    MEM_ALU_RESULT <= (0 => logic_is_lower_signed, others => '0');
 
-                                case DC_ALU_OPC is
-                                    --------------------------------------------
-                                    -- Addition & substraction
-                                    --------------------------------------------
-                                    when ALU_OPCODE_ADD | ALU_OPCODE_SUB =>
-                                        if DC_ALU_OPC = ALU_OPCODE_SUB then
-                                            -- Substraction
-                                            v_tmp := op2_comp2;
-                                        else
-                                            -- Addition
-                                            v_tmp := op2;
-                                        end if;
-                                        MEM_ALU_RESULT <= std_logic_vector(unsigned(op1) + unsigned(v_tmp));
+                                when ALU_OPCODE_SLTU =>
+                                    MEM_ALU_RESULT <= (0 => logic_is_lower_unsigned, others => '0');
 
-                                    --------------------------------------------
-                                    -- Set less than (signed/unsigned)
-                                    --------------------------------------------
-                                    when ALU_OPCODE_SLT =>
-                                        MEM_ALU_RESULT <= (0 => logic_is_lower_signed, others => '0');
+                                --------------------------------------------
+                                -- XOR/OR/AND (signed)
+                                --------------------------------------------
+                                when ALU_OPCODE_XOR =>
+                                    MEM_ALU_RESULT <= op1 xor op2;
+                                when ALU_OPCODE_OR  =>
+                                    MEM_ALU_RESULT <= op1 or op2;
+                                when ALU_OPCODE_AND =>
+                                    MEM_ALU_RESULT <= op1 and op2;
 
-                                    when ALU_OPCODE_SLTU =>
-                                        MEM_ALU_RESULT <= (0 => logic_is_lower_unsigned, others => '0');
+                                --------------------------------------------
+                                -- Shifts : SLL/SRL/SRA
+                                --------------------------------------------
+                                when ALU_OPCODE_SLL  =>
+                                    bitshift_counter    <= unsigned(DC_ALU_SHAMT);
+                                    bitshift_value      <= op1;
+                                    bitshift_msb        <= '0';
+                                    bitshift_reverse    <= '0';
 
-                                    --------------------------------------------
-                                    -- XOR/OR/AND (signed)
-                                    --------------------------------------------
-                                    when ALU_OPCODE_XOR =>
-                                        MEM_ALU_RESULT <= op1 xor op2;
-                                    when ALU_OPCODE_OR  =>
-                                        MEM_ALU_RESULT <= op1 or op2;
-                                    when ALU_OPCODE_AND =>
-                                        MEM_ALU_RESULT <= op1 and op2;
+                                    alu_busy_int <= '1';
+                                    alu_out_valid_int <= '0';
+                                    alu_fsm <= ST_ALU_SHIFTING;
 
-                                    --------------------------------------------
-                                    -- Shifts : SLL/SRL/SRA
-                                    --------------------------------------------
-                                    when ALU_OPCODE_SLL  =>
-                                        bitshift_counter    <= unsigned(DC_ALU_SHAMT);
-                                        bitshift_value      <= op1;
-                                        bitshift_msb        <= '0';
-                                        bitshift_reverse    <= '0';
+                                when ALU_OPCODE_SRL =>
 
-                                        alu_busy_int <= '1';
-                                        alu_out_valid_int <= '0';
-                                        alu_fsm <= ST_ALU_SHIFTING;
+                                    bitshift_counter    <= unsigned(DC_ALU_SHAMT);
+                                    bitshift_value      <= op1_reversed;
+                                    bitshift_msb        <= '0';
+                                    bitshift_reverse    <= '1';
 
-                                    when ALU_OPCODE_SRL =>
+                                    alu_busy_int <= '1';
+                                    alu_out_valid_int <= '0';
+                                    alu_fsm <= ST_ALU_SHIFTING;
 
-                                        bitshift_counter    <= unsigned(DC_ALU_SHAMT);
-                                        bitshift_value      <= op1_reversed;
-                                        bitshift_msb        <= '0';
-                                        bitshift_reverse    <= '1';
+                                when ALU_OPCODE_SRA =>
 
-                                        alu_busy_int <= '1';
-                                        alu_out_valid_int <= '0';
-                                        alu_fsm <= ST_ALU_SHIFTING;
+                                    bitshift_counter    <= unsigned(DC_ALU_SHAMT);
+                                    bitshift_value      <= op1_reversed;
+                                    bitshift_msb        <= op1(31);
+                                    bitshift_reverse    <= '1';
 
-                                    when ALU_OPCODE_SRA =>
-
-                                        bitshift_counter    <= unsigned(DC_ALU_SHAMT);
-                                        bitshift_value      <= op1_reversed;
-                                        bitshift_msb        <= op1(31);
-                                        bitshift_reverse    <= '1';
-
-                                        alu_busy_int <= '1';
-                                        alu_out_valid_int <= '0';
-                                        alu_fsm <= ST_ALU_SHIFTING;
+                                    alu_busy_int <= '1';
+                                    alu_out_valid_int <= '0';
+                                    alu_fsm <= ST_ALU_SHIFTING;
 
 
-                                    --------------------------------------------
-                                    -- Extended operation
-                                    --------------------------------------------
-                                    when ALU_OPCODE_OP1 =>
-                                        MEM_ALU_RESULT <= op1;
-                                    when ALU_OPCODE_OP2 =>
-                                        MEM_ALU_RESULT <= op2;
-                                    when ALU_OPCODE_SEQ =>
-                                        MEM_ALU_RESULT <= (0 => logic_is_equal, others => '0');
-                                    when ALU_OPCODE_SNE =>
-                                        MEM_ALU_RESULT <= (0 => not logic_is_equal, others => '0');
-                                    when ALU_OPCODE_SGE =>
-                                        MEM_ALU_RESULT <= (0 => not logic_is_lower_signed, others => '0');
-                                    when ALU_OPCODE_SGEU =>
-                                        MEM_ALU_RESULT <= (0 => not logic_is_lower_unsigned, others => '0');
-                                    when others =>
-                                        null;
+                                --------------------------------------------
+                                -- Extended operation
+                                --------------------------------------------
+                                when ALU_OPCODE_OP1 =>
+                                    MEM_ALU_RESULT <= op1;
+                                when ALU_OPCODE_OP2 =>
+                                    MEM_ALU_RESULT <= op2;
+                                when ALU_OPCODE_SEQ =>
+                                    MEM_ALU_RESULT <= (0 => logic_is_equal, others => '0');
+                                when ALU_OPCODE_SNE =>
+                                    MEM_ALU_RESULT <= (0 => not logic_is_equal, others => '0');
+                                when ALU_OPCODE_SGE =>
+                                    MEM_ALU_RESULT <= (0 => not logic_is_lower_signed, others => '0');
+                                when ALU_OPCODE_SGEU =>
+                                    MEM_ALU_RESULT <= (0 => not logic_is_lower_unsigned, others => '0');
+                                when others =>
+                                    null;
 
-                                end case;
+                            end case;
+                        end if;
+
+                    when ST_ALU_SHIFTING =>
+
+                        if bitshift_counter /= 0 then
+                            -- Shitfting by one bit
+                            bitshift_value      <= bitshift_value(30 downto 0) & bitshift_msb;
+                            bitshift_counter    <= bitshift_counter - 1;
+                        else
+                            -- Shifting done => send to output
+                            if bitshift_reverse = '1' then
+                                MEM_ALU_RESULT <= slv_reverse_range(bitshift_value);
                             else
-                                alu_out_valid_int <= '0';
+                                MEM_ALU_RESULT <= bitshift_value;
                             end if;
 
-                        when ST_ALU_SHIFTING =>
+                            alu_busy_int <= '0';
+                            alu_out_valid_int <= '1';
 
-                            if bitshift_counter /= 0 then
-                                -- Shitfting by one bit
-                                bitshift_value      <= bitshift_value(30 downto 0) & bitshift_msb;
-                                bitshift_counter    <= bitshift_counter - 1;
-                            else
-                                -- Shifting done => send to output
-                                if bitshift_reverse = '1' then
-                                    MEM_ALU_RESULT <= slv_reverse_range(bitshift_value);
-                                else
-                                    MEM_ALU_RESULT <= bitshift_value;
-                                end if;
+                            alu_fsm <= ST_ALU_FETCH;
+                        end if;
+                end case;
 
-                                alu_busy_int <= '0';
-                                alu_out_valid_int <= '1';
-
-                                alu_fsm <= ST_ALU_FETCH;
-                            end if;
-
-                    end case;
+                if FLUSH = '1' then
+                    alu_fsm <= ST_ALU_FETCH;
+                    alu_busy_int <= '0';
+                    alu_out_valid_int <= '0';
                 end if;
             end if; -- RST
         end if; -- CLK

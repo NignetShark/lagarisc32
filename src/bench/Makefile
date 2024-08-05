@@ -16,7 +16,7 @@ TOPLEVEL_LIBRARY 	= lagarisc
 TOPLEVEL 			= lagarisc_core
 
 # MODULE is the basename of the Python test file
-MODULE = test_fetch_bram
+MODULE = test_sandbox
 
 SCRIPT_FILE = setup_script_file.do
 

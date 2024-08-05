@@ -45,9 +45,9 @@ begin
                     MEM_PC_NOT_TAKEN    when MEM_WB_MUX = MUX_WB_SRC_PC else
                     dc_csr_dout;
 
-    DC_RD_WE    <=  MEM_MEM_WE  when MEM_WB_MUX = MUX_WB_SRC_MEM else
-                    dc_csr_we   when MEM_WB_MUX = MUX_WB_SRC_CSR
-                    else MEM_RD_WE;
+    DC_RD_WE    <=  MEM_MEM_WE      when MEM_WB_MUX = MUX_WB_SRC_MEM else
+                    dc_csr_we       when MEM_WB_MUX = MUX_WB_SRC_CSR else
+                    MEM_RD_WE;
 
     -----------------------------------------
     -- CSR registers
@@ -65,7 +65,7 @@ begin
             MEM_RS1_DATA         => MEM_ALU_RESULT,
 
             -- ==== REGFILE > ====
-            DC_CSR_WE            => dc_csr_we,  -- Output combinatorial
-            DC_CSR_DOUT          => dc_csr_dout -- Output combinatorial
+            DC_CSR_WE            => dc_csr_we,  -- /!\ Output combinatorial (required for CSR atomicity)
+            DC_CSR_DOUT          => dc_csr_dout -- /!\ Output combinatorial (required for CSR atomicity)
         );
 end architecture;

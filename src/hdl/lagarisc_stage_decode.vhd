@@ -12,7 +12,6 @@ entity lagarisc_stage_decode is
 
         -- ==== Control & command ====
         FLUSH                   : in std_logic;
-        STALL                   : in std_logic;
 
         -- Valid & ready
         FETCH_OUT_VALID         : in std_logic;
@@ -75,7 +74,6 @@ begin
 
             -- ==== Control & command ====
             FLUSH                   => FLUSH,
-            STALL                   => STALL,
 
             -- Valid & ready
             FETCH_OUT_VALID         => FETCH_OUT_VALID,

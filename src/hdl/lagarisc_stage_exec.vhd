@@ -12,7 +12,6 @@ entity lagarisc_stage_exec is
 
         -- ==== Control & command ====
         FLUSH                   : in std_logic;
-        STALL                   : in std_logic;
 
         DECODE_OUT_VALID        : in std_logic;
         EXEC_IN_READY           : out std_logic;
@@ -102,7 +101,6 @@ begin
             RST                     => RST,
             -- ==== Control & command ====
             FLUSH                   => FLUSH,
-            STALL                   => STALL,
 
             DECODE_OUT_VALID        => DECODE_OUT_VALID,
             EXEC_IN_READY           => exec_in_ready_int,
@@ -130,7 +128,7 @@ begin
     -- Forwarding process
     -- Use result from upper stages during data hazards
     -------------------------------------
-    P_FORWARDING_UNIT : process (
+    P_ASYNC_FORWARDING_UNIT : process (
         DC_RS1_DATA,
         DC_RS2_DATA,
         DC_RS1_ID,
@@ -182,9 +180,7 @@ begin
                 MEM_PC_TAKEN       <= (others => '-');
                 MEM_PC_NOT_TAKEN   <= (others => '-');
             else
-                if STALL = '1' then
-                    null;
-                elsif (alu_in_ready = '1') and (DECODE_OUT_VALID = '1') then
+                if (exec_in_ready_int = '1') and (DECODE_OUT_VALID = '1') then
                     ---------------------------------------------
                     -- Compute every PC possible (taken/not taken)
                     ---------------------------------------------
@@ -199,6 +195,7 @@ begin
                         -- PC = RS1 + IMM
                         op1 := fwd_rs1_data;
                     end if;
+
                     MEM_PC_TAKEN <= std_logic_vector(unsigned(op1) + unsigned(DC_BRANCH_IMM));
                 end if;
             end if;
@@ -226,10 +223,7 @@ begin
                 -- WB MUX
                 MEM_WB_MUX      <= MUX_WB_SRC_ALU;
             else
-
-                if STALL = '1' then
-                    null;
-                elsif (exec_in_ready_int = '1') and (DECODE_OUT_VALID = '1')  then
+                if (exec_in_ready_int = '1') and (DECODE_OUT_VALID = '1')  then
                     -- PC
                     MEM_BRANCH_OP   <= DC_BRANCH_OP;
                     -- INST
@@ -238,7 +232,7 @@ begin
                     MEM_RD_ID       <= DC_RD_ID;
                     MEM_RD_WE       <= DC_RD_WE;
                     -- MEM
-                    MEM_MEM_DIN     <= DC_RS2_DATA;
+                    MEM_MEM_DIN     <= fwd_rs2_data;
                     MEM_MEM_EN      <= DC_MEM_EN;
                     MEM_MEM_WE      <= DC_MEM_WE;
                     -- CSR

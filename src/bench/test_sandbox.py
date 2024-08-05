@@ -1,6 +1,7 @@
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
+from cocotbext.axi import AxiLiteBus, AxiLiteSlave, MemoryRegion
 
 from bram_emulator.bram_emulator import *
 
@@ -10,10 +11,12 @@ async def test_fetch(dut):
     cocotb.start_soon(clk.start())
 
     bram_content = BramWordContent()
-    bram_content.load_from_file("program/sandbox/simple_prog.bin")
+    bram_content.load_from_file("program/asm_sandbox/simple_prog.bin")
 
-    bram = BramEmulator(bram_content, dut.clk, BramPorts(dut.bram_addr, None, dut.bram_dout, dut.bram_en, None))
+    bram = BramEmulator(bram_content, dut.clk, BramPorts(dut.inst_bram_addr, None, dut.inst_bram_dout, dut.inst_bram_en, None))
     bram.start_soon()
+
+    axi_slave = AxiLiteSlave(AxiLiteBus.from_prefix(dut, "DATA_AXI"), dut.clk, dut.rst, target=MemoryRegion(2**10))
 
     dut.rst.value = 1
     for i in range(10):

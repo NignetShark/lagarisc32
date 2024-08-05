@@ -14,24 +14,43 @@ entity lagarisc_core is
         CLK                 : in std_logic;
         RST                 : in std_logic;
 
-        -- ==== BRAM interface ====
-        BRAM_EN             : out  std_logic;
-        BRAM_ADDR           : out  std_logic_vector(31 downto 0);
-        BRAM_DOUT           : in   std_logic_vector(31 downto 0)
+        -- ==== > Instruction BRAM interface > ====
+        INST_BRAM_EN        : out  std_logic;
+        INST_BRAM_ADDR      : out  std_logic_vector(31 downto 0);
+        INST_BRAM_DOUT      : in   std_logic_vector(31 downto 0);
+
+        -- ==== > Data AXI4L interface > ====
+        -- write access
+        DATA_AXI_AWVALID             : out std_logic;
+        DATA_AXI_AWREADY             : in  std_logic;
+        DATA_AXI_AWADDR              : out std_logic_vector(31 downto 0);
+        DATA_AXI_AWPROT              : out std_logic_vector(2 downto 0);
+        DATA_AXI_WVALID              : out std_logic;
+        DATA_AXI_WREADY              : in  std_logic;
+        DATA_AXI_WDATA               : out std_logic_vector(31 downto 0);
+        DATA_AXI_WSTRB               : out std_logic_vector(3 downto 0);
+        DATA_AXI_BVALID              : in  std_logic;
+        DATA_AXI_BREADY              : out std_logic;
+        DATA_AXI_BRESP               : in  std_logic_vector(1 downto 0);
+        -- read access
+        DATA_AXI_ARVALID             : out std_logic;
+        DATA_AXI_ARREADY             : in  std_logic;
+        DATA_AXI_ARADDR              : out std_logic_vector(31 downto 0);
+        DATA_AXI_ARPROT              : out std_logic_vector(2 downto 0);
+        DATA_AXI_RVALID              : in  std_logic;
+        DATA_AXI_RREADY              : out std_logic;
+        DATA_AXI_RDATA               : in  std_logic_vector(31 downto 0);
+        DATA_AXI_RESP                : in  std_logic_vector(1 downto 0)
     );
     end entity;
 
 architecture rtl of lagarisc_core is
 
-    signal fetch_stall              : std_logic;
-    signal decode_stall             : std_logic;
-    signal exec_stall               : std_logic;
-    signal mem_stall                : std_logic;
-
-    signal fetch_flush              : std_logic;
     signal decode_flush             : std_logic;
     signal exec_flush               : std_logic;
+    signal mem_stall                : std_logic;
     signal mem_flush                : std_logic;
+    signal mem_flush_ack            : std_logic;
 
     signal fetch_in_ready           : std_logic;
     signal fetch_out_valid          : std_logic;
@@ -73,10 +92,10 @@ architecture rtl of lagarisc_core is
     signal mem_pc_taken             : std_logic_vector(31 downto 0);
     signal mem_pc_not_taken         : std_logic_vector(31 downto 0);
     signal mem_branch_op            : branch_op_t;
+    signal mem_inst_f3              : std_logic_vector(2 downto 0);
     signal mem_rd_id                : std_logic_vector(4 downto 0);
     signal mem_rd_we                : std_logic;
     signal mem_alu_result           : std_logic_vector(31 downto 0);
-    signal mem_inst_f3              : std_logic_vector(2 downto 0);
     signal mem_mem_din              : std_logic_vector(31 downto 0);
     signal mem_mem_en               : std_logic;
     signal mem_mem_we               : std_logic;
@@ -102,11 +121,6 @@ architecture rtl of lagarisc_core is
     signal sup_pc_taken             : std_logic_vector(31 downto 0);
 begin
 
-    fetch_stall   <= '0';
-    decode_stall  <= '0';
-    exec_stall    <= '0';
-    mem_stall     <= '0';
-
     inst_supervisor : lagarisc_supervisor
         generic map (
             G_BOOT_ADDR     => G_BOOT_ADDR
@@ -116,18 +130,22 @@ begin
             RST                 => RST,
 
             -- ==== > MEM ====
+            MEM_FLUSH_ACK       => mem_flush_ack,     -- Memory must ack flush before desasserting flush signal (defered flush)
             MEM_BRANCH_TAKEN    => sup_branch_taken,
             MEM_PC_TAKEN        => sup_pc_taken,
 
             -- ==== > FETCH ====
+            FETCH_IN_READY      => fetch_in_ready,
             FETCH_BRANCH_TAKEN  => fetch_branch_taken,
             FETCH_PC_TAKEN      => fetch_pc_taken,
 
             -- ==== Flush ====
-            FETCH_FLUSH         => fetch_flush,
             DECODE_FLUSH        => decode_flush,
             EXEC_FLUSH          => exec_flush,
-            MEM_FLUSH           => mem_flush
+            MEM_FLUSH           => mem_flush,
+
+            -- ==== Stall ====
+            MEM_STALL           => mem_stall
         );
 
     inst_fetch_bram : lagarisc_fetch_bram
@@ -139,18 +157,14 @@ begin
             RST                     => RST,
 
             -- ==== Control & command ====
-            FLUSH                   => fetch_flush,
-            STALL                   => fetch_stall,
-
-            MEM_BRANCH_OUT_VALID    => '1',
             FETCH_IN_READY          => fetch_in_ready,
             FETCH_OUT_VALID         => fetch_out_valid,
             DECODE_IN_READY         => decode_in_ready,
 
             -- ==== BRAM interface ====
-            BRAM_EN                 => BRAM_EN,
-            BRAM_ADDR               => BRAM_ADDR,
-            BRAM_DOUT               => BRAM_DOUT,
+            BRAM_EN                 => INST_BRAM_EN,
+            BRAM_ADDR               => INST_BRAM_ADDR,
+            BRAM_DOUT               => INST_BRAM_DOUT,
 
             -- ==== DECODE stage ====
             DC_EXEC_PROGRAM_COUNTER => dc_exec_program_counter,
@@ -167,7 +181,6 @@ begin
             RST                         => RST,
 
             -- ==== Control & command ====
-            STALL                       => decode_stall,
             FLUSH                       => decode_flush,
 
             -- Valid & ready
@@ -224,7 +237,6 @@ begin
             RST                 => RST,
 
             -- ==== Control & command ====
-            STALL               => exec_stall,
             FLUSH               => exec_flush,
 
             DECODE_OUT_VALID    => decode_out_valid,
@@ -308,8 +320,9 @@ begin
             RST                     => RST,
 
             -- ==== Control & command ====
-            FLUSH                   => mem_flush,
             STALL                   => mem_stall,
+            FLUSH                   => mem_flush,
+            FLUSH_ACK               => mem_flush_ack,
 
             EXEC_OUT_VALID          => exec_out_valid,
             MEM_IN_READY            => mem_in_ready,
@@ -356,7 +369,30 @@ begin
             -- ==== SUP > ====
             -- PC
             SUP_BRANCH_TAKEN      => sup_branch_taken,
-            SUP_PC_TAKEN          => sup_pc_taken
+            SUP_PC_TAKEN          => sup_pc_taken,
+
+            -- ==== > AXI4L interface > ====
+            -- write access
+            AXI_AWVALID             => DATA_AXI_AWVALID,
+            AXI_AWREADY             => DATA_AXI_AWREADY,
+            AXI_AWADDR              => DATA_AXI_AWADDR,
+            AXI_AWPROT              => DATA_AXI_AWPROT,
+            AXI_WVALID              => DATA_AXI_WVALID,
+            AXI_WREADY              => DATA_AXI_WREADY,
+            AXI_WDATA               => DATA_AXI_WDATA,
+            AXI_WSTRB               => DATA_AXI_WSTRB,
+            AXI_BVALID              => DATA_AXI_BVALID,
+            AXI_BREADY              => DATA_AXI_BREADY,
+            AXI_BRESP               => DATA_AXI_BRESP,
+            --read access
+            AXI_ARVALID             => DATA_AXI_ARVALID,
+            AXI_ARREADY             => DATA_AXI_ARREADY,
+            AXI_ARADDR              => DATA_AXI_ARADDR,
+            AXI_ARPROT              => DATA_AXI_ARPROT,
+            AXI_RVALID              => DATA_AXI_RVALID,
+            AXI_RREADY              => DATA_AXI_RREADY,
+            AXI_RDATA               => DATA_AXI_RDATA,
+            AXI_RESP                => DATA_AXI_RESP
         );
 
     inst_stage_wb : lagarisc_stage_wb

@@ -14,7 +14,6 @@ package pkg_lagarisc is
     type mux_alu_op2_t is (MUX_ALU_OP2_RS2, MUX_ALU_OP2_IMM);
     type mux_wb_src_t  is (MUX_WB_SRC_MEM, MUX_WB_SRC_ALU, MUX_WB_SRC_PC, MUX_WB_SRC_CSR);
 
-
     -----------------------------------------------------
     -- RV32I OPCODES
     -----------------------------------------------------
@@ -144,18 +143,22 @@ package pkg_lagarisc is
             RST   : in std_logic;
 
             -- ==== > MEM ====
+            MEM_FLUSH_ACK       : in std_logic;     -- Memory must ack flush before desasserting flush signal (defered flush)
             MEM_BRANCH_TAKEN    : in std_logic;
             MEM_PC_TAKEN        : in std_logic_vector(31 downto 0);
 
-            -- ==== > FETCH ====
+            -- ==== > FETCH > ====
+            FETCH_IN_READY      : in std_logic;
             FETCH_BRANCH_TAKEN  : out std_logic;
             FETCH_PC_TAKEN      : out std_logic_vector(31 downto 0);
 
             -- ==== Flush ====
-            FETCH_FLUSH         : out std_logic;
             DECODE_FLUSH        : out std_logic;
             EXEC_FLUSH          : out std_logic;
-            MEM_FLUSH           : out std_logic
+            MEM_FLUSH           : out std_logic;
+
+            -- ==== Stall ====
+            MEM_STALL           : out std_logic
         );
     end component;
 
@@ -171,10 +174,6 @@ package pkg_lagarisc is
             RST                         : in std_logic;
 
             -- ==== Control & command ====
-            FLUSH                       : in  std_logic;
-            STALL                       : in  std_logic;
-
-            MEM_BRANCH_OUT_VALID        : in std_logic;
             FETCH_IN_READY              : out std_logic;
             FETCH_OUT_VALID             : out std_logic;
             DECODE_IN_READY             : in std_logic;
@@ -203,7 +202,6 @@ package pkg_lagarisc is
 
             -- ==== Control & command ====
             FLUSH                   : in std_logic;
-            STALL                   : in std_logic;
 
             -- Valid & ready
             FETCH_OUT_VALID         : in std_logic;
@@ -261,7 +259,6 @@ package pkg_lagarisc is
 
             -- ==== Control & command ====
             FLUSH                   : in std_logic;
-            STALL                   : in std_logic;
 
             DECODE_OUT_VALID        : in std_logic;
             EXEC_IN_READY           : out std_logic;
@@ -345,17 +342,20 @@ package pkg_lagarisc is
             RST                     : in std_logic;
 
             -- ==== Control & command ====
-            FLUSH                   : in std_logic;
             STALL                   : in std_logic;
+            FLUSH                   : in std_logic;
+            FLUSH_ACK               : out std_logic; -- Acknowledge flush (defered flush)
 
             EXEC_OUT_VALID          : in std_logic;
             MEM_IN_READY            : out std_logic;
+            -- WB stage is always read
+            -- Mem output is always valid (at least control signals)
 
             -- ==== > EXEC ====
             -- PC
             EXEC_PC_TAKEN           : in std_logic_vector(31 downto 0);
             EXEC_PC_NOT_TAKEN       : in std_logic_vector(31 downto 0); -- PC + 4
-            EXEC_BRANCH_OP             : in branch_op_t;
+            EXEC_BRANCH_OP          : in branch_op_t;
             -- INST
             EXEC_INST_F3            : in std_logic_vector(2 downto 0);
             -- RD
@@ -393,7 +393,30 @@ package pkg_lagarisc is
             -- ==== SUPERVISOR > ====
             -- PC
             SUP_BRANCH_TAKEN        : out std_logic;
-            SUP_PC_TAKEN            : out std_logic_vector(31 downto 0)
+            SUP_PC_TAKEN            : out std_logic_vector(31 downto 0);
+
+            -- ==== > AXI4L interface > ====
+            -- write access
+            AXI_AWVALID             : out std_logic;
+            AXI_AWREADY             : in  std_logic;
+            AXI_AWADDR              : out std_logic_vector(31 downto 0);
+            AXI_AWPROT              : out std_logic_vector(2 downto 0);
+            AXI_WVALID              : out std_logic;
+            AXI_WREADY              : in  std_logic;
+            AXI_WDATA               : out std_logic_vector(31 downto 0);
+            AXI_WSTRB               : out std_logic_vector(3 downto 0);
+            AXI_BVALID              : in  std_logic;
+            AXI_BREADY              : out std_logic;
+            AXI_BRESP               : in  std_logic_vector(1 downto 0);
+            --read access
+            AXI_ARVALID             : out std_logic;
+            AXI_ARREADY             : in  std_logic;
+            AXI_ARADDR              : out std_logic_vector(31 downto 0);
+            AXI_ARPROT              : out std_logic_vector(2 downto 0);
+            AXI_RVALID              : in  std_logic;
+            AXI_RREADY              : out std_logic;
+            AXI_RDATA               : in  std_logic_vector(31 downto 0);
+            AXI_RESP                : in  std_logic_vector(1 downto 0)
         );
     end component;
 
@@ -437,7 +460,6 @@ package pkg_lagarisc is
 
             -- ==== Control & command ====
             FLUSH                   : in std_logic;
-            STALL                   : in std_logic;
 
             -- Valid & ready
             FETCH_OUT_VALID         : in std_logic;
@@ -512,7 +534,6 @@ package pkg_lagarisc is
 
             -- ==== Control & command ====
             FLUSH                   : in std_logic;
-            STALL                   : in std_logic;
 
             DECODE_OUT_VALID        : in std_logic;
             EXEC_IN_READY           : in std_logic;
@@ -535,6 +556,58 @@ package pkg_lagarisc is
 
             -- ==== MEM > ====
             MEM_ALU_RESULT          : out std_logic_vector(31 downto 0)
+        );
+    end component;
+
+    component lagarisc_lsu is
+        port (
+            CLK  : in std_logic;
+            RST  : in std_logic;
+
+            -- ==== Control & command ====
+            FLUSH                   : in std_logic;
+            FLUSH_ACK               : out std_logic; -- Acknowledge flush (defered flush)
+
+            EXEC_OUT_VALID          : in std_logic;
+            LSU_IN_READY            : out std_logic;
+            MEM_IN_READY            : in  std_logic; -- Loop back
+            LSU_OUT_VALID           : out std_logic;
+
+            -- ==== > EXEC ====
+            -- INST
+            EXEC_INST_F3            : in std_logic_vector(2 downto 0);
+            -- MEM
+            EXEC_MEM_ADDR           : in std_logic_vector(31 downto 0);
+            EXEC_MEM_DIN            : in std_logic_vector(31 downto 0);
+            EXEC_MEM_EN             : in std_logic;
+            EXEC_MEM_WE             : in std_logic;
+
+            -- ==== WB > ====
+            WB_MEM_DOUT             : out std_logic_vector(31 downto 0);
+            WB_MEM_WE               : out std_logic;
+
+            -- ==== > AXI4L interface > ====
+            -- write access
+            AXI_AWVALID             : out std_logic;
+            AXI_AWREADY             : in  std_logic;
+            AXI_AWADDR              : out std_logic_vector(31 downto 0);
+            AXI_AWPROT              : out std_logic_vector(2 downto 0);
+            AXI_WVALID              : out std_logic;
+            AXI_WREADY              : in  std_logic;
+            AXI_WDATA               : out std_logic_vector(31 downto 0);
+            AXI_WSTRB               : out std_logic_vector(3 downto 0);
+            AXI_BVALID              : in  std_logic;
+            AXI_BREADY              : out std_logic;
+            AXI_BRESP               : in  std_logic_vector(1 downto 0);
+            --read access
+            AXI_ARVALID             : out std_logic;
+            AXI_ARREADY             : in  std_logic;
+            AXI_ARADDR              : out std_logic_vector(31 downto 0);
+            AXI_ARPROT              : out std_logic_vector(2 downto 0);
+            AXI_RVALID              : in  std_logic;
+            AXI_RREADY              : out std_logic;
+            AXI_RDATA               : in  std_logic_vector(31 downto 0);
+            AXI_RESP                : in  std_logic_vector(1 downto 0)
         );
     end component;
 

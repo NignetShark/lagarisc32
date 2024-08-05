@@ -1,0 +1,33 @@
+
+simple_prog.elf:     format de fichier elf32-littleriscv
+
+
+Déassemblage de la section .text :
+
+00000000 <start>:
+   0:	00000293          	li	t0,0
+   4:	0000b3b7          	lui	t2,0xb
+   8:	bcd38393          	addi	t2,t2,-1075 # abcd <start+0xabcd>
+   c:	0072a023          	sw	t2,0(t0)
+  10:	0002ae03          	lw	t3,0(t0)
+  14:	0002ae83          	lw	t4,0(t0)
+  18:	0002af03          	lw	t5,0(t0)
+
+Déassemblage de la section .riscv.attributes :
+
+00000000 <.riscv.attributes>:
+   0:	2341                	jal	580 <start+0x580>
+   2:	0000                	unimp
+   4:	7200                	flw	fs0,32(a2)
+   6:	7369                	lui	t1,0xffffa
+   8:	01007663          	bgeu	zero,a6,14 <start+0x14>
+   c:	0019                	c.nop	6
+   e:	0000                	unimp
+  10:	7205                	lui	tp,0xfffe1
+  12:	3376                	fld	ft6,376(sp)
+  14:	6932                	flw	fs2,12(sp)
+  16:	7032                	flw	ft0,44(sp)
+  18:	5f30                	lw	a2,120(a4)
+  1a:	326d                	jal	fffff9c4 <start+0xfffff9c4>
+  1c:	3070                	fld	fa2,224(s0)
+  1e:	615f 7032 0030      	0x307032615f
