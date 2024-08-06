@@ -12,6 +12,9 @@ LD_SCRIPT = ../common/dummy_mem.ld
 %.o: %.s $(DEPS)
 	$(AS) -o $@ -c $< $(CFLAGS)
 
+%.o: %.c $(DEPS)
+	$(CC) -o $@ -c $< $(CFLAGS)
+
 %.elf : %.o
 	$(LD) -o $@ -T $(LD_SCRIPT) $< $(LDFLAGS)
 

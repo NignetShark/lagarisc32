@@ -2,7 +2,7 @@ include ../common/common.mk
 
 PROG = simple_prog
 
-all: $(PROG).bin $(PROG).txt
+all: $(PROG).elf $(PROG).txt
 
 clean:
-	rm $(PROG).bin $(PROG).txt $(PROG).elf
+	rm $(PROG).elf $(PROG).txt 2> /dev/null
