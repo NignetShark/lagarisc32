@@ -96,6 +96,10 @@ begin
                 bitshift_msb        <= '-';
                 bitshift_reverse    <= '-';
             else
+                if (MEM_IN_READY = '1') and (alu_out_valid_int = '1') then
+                    alu_out_valid_int <= '0';
+                end if;
+
                 case alu_fsm is
                     when ST_ALU_FETCH =>
                         if (DECODE_OUT_VALID = '1') and (EXEC_IN_READY = '1') then

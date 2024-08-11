@@ -131,6 +131,17 @@ package pkg_lagarisc is
         CSR_OPCODE_CLEAR
     );
 
+
+    -----------------------------------------------------
+    -- AXI4 constants
+    -----------------------------------------------------
+    constant C_AXI4_IACCESS     : std_logic_vector(2 downto 0):="100";
+    constant C_AXI4_DACCESS     : std_logic_vector(2 downto 0):="000";
+    constant C_AXI4_OKAY        : std_logic_vector(1 downto 0):="00";
+    constant C_AXI4_EXOKAY      : std_logic_vector(1 downto 0):="01";
+    constant C_AXI4_SLVERR      : std_logic_vector(1 downto 0):="10";
+    constant C_AXI4_DECERR      : std_logic_vector(1 downto 0):="11";
+
     -----------------------------------------------------
     -- SUPERVISOR
     -----------------------------------------------------
@@ -148,9 +159,9 @@ package pkg_lagarisc is
             MEM_PC_TAKEN        : in std_logic_vector(31 downto 0);
 
             -- ==== > FETCH > ====
-            FETCH_IN_READY      : in std_logic;
             FETCH_BRANCH_TAKEN  : out std_logic;
             FETCH_PC_TAKEN      : out std_logic_vector(31 downto 0);
+            FETCH_BRANCH_READY  : in  std_logic;
 
             -- ==== Flush ====
             DECODE_FLUSH        : out std_logic;
@@ -165,6 +176,41 @@ package pkg_lagarisc is
     -----------------------------------------------------
     -- STAGES
     -----------------------------------------------------
+    component lagarisc_fetch_axi4l is
+        generic (
+            G_NB_ISSUES                 : positive  := 3
+        );
+        port (
+            CLK                         : in std_logic;
+            RST                         : in std_logic;
+
+            -- ==== Control & command ====
+            FETCH_OUT_VALID             : out std_logic;
+            DECODE_IN_READY             : in std_logic;
+            FETCH_BRANCH_READY          : out std_logic;
+
+            -- ==== DECODE & EXEC stage > ====
+            DC_EXEC_PROGRAM_COUNTER     : out  std_logic_vector(31 downto 0);
+
+            -- ==== DECODE > ====
+            DC_INST_DATA                : out  std_logic_vector(31 downto 0);
+
+            -- === > SUPERVISOR ===
+            SUP_BRANCH_TAKEN            : in std_logic;
+            SUP_PC_TAKEN                : in std_logic_vector(31 downto 0);
+
+            -- ==== AXI4L read interface ====
+            AXI_ARVALID                 : out std_logic;
+            AXI_ARREADY                 : in  std_logic;
+            AXI_ARADDR                  : out std_logic_vector(31 downto 0);
+            AXI_ARPROT                  : out std_logic_vector(2 downto 0);
+            AXI_RVALID                  : in  std_logic;
+            AXI_RREADY                  : out std_logic;
+            AXI_RDATA                   : in  std_logic_vector(31 downto 0);
+            AXI_RESP                    : in  std_logic_vector(1 downto 0)
+        );
+    end component;
+
     component lagarisc_fetch_bram is
         generic (
             G_BRAM_LATENCY  : positive  := 1
@@ -452,6 +498,27 @@ package pkg_lagarisc is
     -----------------------------------------------------
     -- SUB-COMPONENTS
     -----------------------------------------------------
+    component lagarisc_fetch_issue_fifo is
+        generic (
+            G_NB_ISSUES                 : positive  := 3
+        );
+        port (
+            CLK                         : in std_logic;
+            RST                         : in std_logic;
+
+            ADDR_IN                     : in std_logic_vector(31 downto 0);
+            ADDR_OUT                    : out std_logic_vector(31 downto 0);
+
+            PUSH                        : in  std_logic;
+            POP                         : in  std_logic;
+
+            IS_FULL                     : out std_logic;
+            IS_ALMOST_FULL              : out std_logic;
+            IS_EMPTY                    : out std_logic;
+
+            USAGE_CNT                   : out integer range G_NB_ISSUES downto 0
+        );
+    end component;
 
     component lagarisc_decode is
         port (

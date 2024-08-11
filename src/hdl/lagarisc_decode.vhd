@@ -275,6 +275,10 @@ begin
                 -- WB MUX
                 EXEC_WB_MUX             <= MUX_WB_SRC_ALU;
             else
+                if (EXEC_IN_READY = '1') and (decode_out_valid_int = '1') then
+                    decode_out_valid_int <= '0';
+                end if;
+
                 if (decode_in_ready_int = '1') and (FETCH_OUT_VALID = '1') then
                     -------------------------------------------------
                     -- Default commands

@@ -58,13 +58,6 @@ entity lagarisc_lsu is
 end entity;
 
 architecture rtl of lagarisc_lsu is
-    -- Constants
-    constant C_AXI4_IACCESS     : std_logic_vector(2 downto 0):="100";
-    constant C_AXI4_DACCESS     : std_logic_vector(2 downto 0):="000";
-    constant C_AXI4_OKAY        : std_logic_vector(1 downto 0):="00";
-    constant C_AXI4_EXOKAY      : std_logic_vector(1 downto 0):="01";
-    constant C_AXI4_SLVERR      : std_logic_vector(1 downto 0):="10";
-    constant C_AXI4_DECERR      : std_logic_vector(1 downto 0):="11";
 
     constant C_STRB_BYTE        : std_logic_vector(1 downto 0):="00";
     constant C_STRB_HALF        : std_logic_vector(1 downto 0):="01";

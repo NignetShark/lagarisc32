@@ -35,7 +35,7 @@ class BramPorts:
         return self.we.value if self.we is not None else 0
 
     @staticmethod
-    def from_suffix(parent, suffix : str, with_din : bool = False, with_we : bool = False):
+    def from_prefix(parent, suffix : str, with_din : bool = False, with_we : bool = False):
         addr = parent._id(f"{suffix}_addr")
         din  = parent._id(f"{suffix}_din") if with_din else None
         dout = parent._id(f"{suffix}_dout")

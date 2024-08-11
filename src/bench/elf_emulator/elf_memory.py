@@ -12,7 +12,6 @@ class ElfSectionRegion(Region):
         self.data = bytearray(section.data())
 
     async def _read(self, address, length, **kwargs):
-
         return self.data[address:address+length]
 
     async def _write(self, address, data, **kwargs):
