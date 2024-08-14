@@ -144,24 +144,24 @@ begin
         fwd_rs2_data <= DC_RS2_DATA;
 
         -- RS1
-        if (unsigned(DC_RS1_ID) /= 0) and (MEM_FWD_RD_WE = '1') then
+        if (unsigned(DC_RS1_ID) /= 0) then
             -- Per priority
-            if(DC_RS1_ID = MEM_FWD_RD_ID) then
+            if(DC_RS1_ID = MEM_FWD_RD_ID) and (MEM_FWD_RD_WE = '1') then
                 -- RS1 : Use data from memory stage
                 fwd_rs1_data    <= MEM_FWD_RD_DATA;
-            elsif(DC_RS1_ID = WB_FWD_RD_ID) then
+            elsif(DC_RS1_ID = WB_FWD_RD_ID) and (WB_FWD_RD_WE = '1')  then
                 -- RS1 : Use data from write-back stage
                 fwd_rs1_data    <= WB_FWD_RD_DATA;
             end if;
         end if;
 
         -- RS2
-        if (unsigned(DC_RS2_ID) /= 0) and (WB_FWD_RD_WE = '1') then
+        if (unsigned(DC_RS2_ID) /= 0) then
             -- Per priority
-            if(DC_RS2_ID = MEM_FWD_RD_ID) then
+            if(DC_RS2_ID = MEM_FWD_RD_ID) and (MEM_FWD_RD_WE = '1') then
                 -- RS2 : Use data from memory stage
                 fwd_rs2_data    <= MEM_FWD_RD_DATA;
-            elsif(DC_RS2_ID = WB_FWD_RD_ID) then
+            elsif(DC_RS2_ID = WB_FWD_RD_ID) and (WB_FWD_RD_WE = '1')  then
                 -- RS2 : Use data from write-back stage
                 fwd_rs2_data    <= WB_FWD_RD_DATA;
             end if;

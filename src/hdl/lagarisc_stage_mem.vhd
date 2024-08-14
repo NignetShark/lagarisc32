@@ -228,13 +228,14 @@ begin
 
                 else
                     SUP_BRANCH_TAKEN    <= '0';
-                    WB_RD_WE            <= '0';
+                    --WB_RD_WE            <= '0';
                     WB_CSR_OPCODE       <= CSR_OPCODE_READ;
                 end if;
 
                 if FLUSH = '1' then
                     SUP_BRANCH_TAKEN    <= '0';
-                    WB_RD_WE            <= '0';
+                    WB_RD_ID            <= (others => '0'); -- Prevent forwarding
+                    --WB_RD_WE            <= '0';
                     WB_CSR_OPCODE       <= CSR_OPCODE_READ;
                 end if;
 

@@ -72,6 +72,8 @@ architecture rtl of lagarisc_decode is
 
     signal inst_rs1         : std_logic_vector(4 downto 0);
     signal inst_rs2         : std_logic_vector(4 downto 0);
+    signal inst_rs1_reg     : std_logic_vector(4 downto 0);
+    signal inst_rs2_reg     : std_logic_vector(4 downto 0);
     signal inst_f7          : std_logic_vector(6 downto 0);
     signal inst_f3          : std_logic_vector(2 downto 0);
     signal inst_rd          : std_logic_vector(4 downto 0);
@@ -124,9 +126,9 @@ architecture rtl of lagarisc_decode is
                 opcode := ALU_OPCODE_SLL;
             when C_F3_SRL_SRA =>
                 if p_inst_f7(5) = '1' then
-                    opcode := ALU_OPCODE_SRL;
-                else
                     opcode := ALU_OPCODE_SRA;
+                else
+                    opcode := ALU_OPCODE_SRL;
                 end if;
             when others =>
                 null;
@@ -198,12 +200,12 @@ architecture rtl of lagarisc_decode is
 begin
 
     -- Base Instruction Format (2.2 p11)
-    inst_f7             <= FETCH_INST_DATA(31 downto 25);
-    inst_rs2            <= FETCH_INST_DATA(24 downto 20);
-    inst_rs1            <= FETCH_INST_DATA(19 downto 15);
-    inst_f3             <= FETCH_INST_DATA(14 downto 12);
-    inst_rd             <= FETCH_INST_DATA(11 downto 7);
     inst_opcode         <= FETCH_INST_DATA(6 downto 0);
+    inst_rd             <= FETCH_INST_DATA(11 downto 7);
+    inst_f3             <= FETCH_INST_DATA(14 downto 12);
+    inst_rs1            <= FETCH_INST_DATA(19 downto 15);
+    inst_rs2            <= FETCH_INST_DATA(24 downto 20);
+    inst_f7             <= FETCH_INST_DATA(31 downto 25);
 
     -- Immediate Encoding Variants (2.3 p11)
     imm_i               <= FETCH_INST_DATA(31 downto 20);
@@ -227,8 +229,12 @@ begin
     DECODE_OUT_VALID       <= decode_out_valid_int;
 
     -- Output assignment
-    REGFILE_RS1_ID      <= inst_rs1;
-    REGFILE_RS2_ID      <= inst_rs2;
+    REGFILE_RS1_ID      <= inst_rs1 when (decode_in_ready_int = '1') and (FETCH_OUT_VALID = '1') else inst_rs1_reg;
+    REGFILE_RS2_ID      <= inst_rs2 when (decode_in_ready_int = '1') and (FETCH_OUT_VALID = '1') else inst_rs2_reg;
+
+    EXEC_RS1_ID         <= inst_rs1_reg;
+    EXEC_RS2_ID         <= inst_rs2_reg;
+
 
     process(CLK)
     begin
@@ -248,8 +254,8 @@ begin
                 EXEC_INST_F7            <= (others => '-');
 
                 -- RSX
-                EXEC_RS1_ID             <= (others => '0');
-                EXEC_RS2_ID             <= (others => '0');
+                inst_rs1_reg             <= (others => '0');
+                inst_rs2_reg             <= (others => '0');
 
                 -- RD
                 EXEC_RD_ID              <= (others => '-');
@@ -294,8 +300,8 @@ begin
                     EXEC_INST_F7            <= inst_f7;
 
                     -- RSX
-                    EXEC_RS1_ID             <= inst_rs1;
-                    EXEC_RS2_ID             <= inst_rs2;
+                    inst_rs1_reg             <= inst_rs1;
+                    inst_rs2_reg             <= inst_rs2;
 
                     -- RD
                     EXEC_RD_ID              <= inst_rd;
@@ -323,8 +329,15 @@ begin
                     case inst_opcode is
                         -- LUI : Load Upper Immediat
                         when C_OP_LUI =>
-                            EXEC_ALU_IMM            <= imm_u;
+                            EXEC_ALU_IMM        <= imm_u;
+                            EXEC_ALU_OPC        <= ALU_OPCODE_OP2;
+                            EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
+                            EXEC_RD_WE          <= '1';
+
+                        when C_OP_AUIPC =>
+                            EXEC_ALU_IMM        <= imm_u;
                             EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
+                            EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_PC;
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
                             EXEC_RD_WE          <= '1';
 

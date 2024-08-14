@@ -5,17 +5,23 @@
 # RiscV general doc
 riscv_doc
 
-# Bench artefacts
-src/bench/*.wlf
-src/bench/wave.do
-src/bench/transcript
-src/bench/tcl_stacktrace.txt
-src/bench/modelsim.ini
-src/bench/results.xml
-src/bench/vish_stacktrace.vstf
+# Modelsim artefacts
+src/bench/**/*.wlf
+src/bench/**/wave.do
+src/bench/**/transcript
+src/bench/**/tcl_stacktrace.txt
+src/bench/**/modelsim.ini
+src/bench/**/results.xml
+src/bench/**/vish_stacktrace.vstf
 
 # Build artefacts
 **/sim_build
-**/*.o
-**/*.elf
-**/*.bin
+src/bench/**/*.o
+src/bench/**/*.elf
+src/bench/**/*.bin
+src/bench/**/*.txt
+
+# Riscof build directory
+src/bench/riscof/riscof_work
+
+lib/python/**/*.egg-info

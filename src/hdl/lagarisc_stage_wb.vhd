@@ -37,17 +37,41 @@ end entity;
 architecture rtl of lagarisc_stage_wb is
     signal dc_csr_dout : std_logic_vector(31 downto 0);
     signal dc_csr_we   : std_logic;
+
+    signal dc_rd_we_int   : std_logic;
+    signal dc_rd_data_int : std_logic_vector(31 downto 0);
+    signal dc_rd_data_reg : std_logic_vector(31 downto 0);
 begin
     DC_RD_ID    <=  MEM_RD_ID;
 
-    DC_RD_DATA  <=  MEM_ALU_RESULT      when MEM_WB_MUX = MUX_WB_SRC_ALU else
-                    MEM_MEM_DOUT        when MEM_WB_MUX = MUX_WB_SRC_MEM else
-                    MEM_PC_NOT_TAKEN    when MEM_WB_MUX = MUX_WB_SRC_PC else
-                    dc_csr_dout;
+    dc_rd_we_int    <=  MEM_MEM_WE      when MEM_WB_MUX = MUX_WB_SRC_MEM else
+                        dc_csr_we       when MEM_WB_MUX = MUX_WB_SRC_CSR else
+                        MEM_RD_WE;
 
-    DC_RD_WE    <=  MEM_MEM_WE      when MEM_WB_MUX = MUX_WB_SRC_MEM else
-                    dc_csr_we       when MEM_WB_MUX = MUX_WB_SRC_CSR else
-                    MEM_RD_WE;
+    DC_RD_WE        <= dc_rd_we_int;
+
+    dc_rd_data_int  <=  MEM_ALU_RESULT      when MEM_WB_MUX = MUX_WB_SRC_ALU else
+                        MEM_MEM_DOUT        when MEM_WB_MUX = MUX_WB_SRC_MEM else
+                        MEM_PC_NOT_TAKEN    when MEM_WB_MUX = MUX_WB_SRC_PC else
+                        dc_csr_dout;
+
+    DC_RD_DATA      <= dc_rd_data_int when dc_rd_we_int = '1' else dc_rd_data_reg; -- Required for RD forwarding
+
+    -----------------------------------------
+    -- Registering RD_DATA when WE
+    -----------------------------------------
+    process(CLK) is
+    begin
+        if rising_edge(CLK) then
+            if RST = '1' then
+                dc_rd_data_reg <= (others => '-');
+            else
+                if dc_rd_we_int = '1' then
+                    dc_rd_data_reg <= dc_rd_data_int;
+                end if;
+            end if;
+        end if;
+    end process;
 
     -----------------------------------------
     -- CSR registers
@@ -68,4 +92,7 @@ begin
             DC_CSR_WE            => dc_csr_we,  -- /!\ Output combinatorial (required for CSR atomicity)
             DC_CSR_DOUT          => dc_csr_dout -- /!\ Output combinatorial (required for CSR atomicity)
         );
+
+
+
 end architecture;

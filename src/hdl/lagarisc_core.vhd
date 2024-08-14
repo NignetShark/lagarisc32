@@ -7,7 +7,7 @@ use lagarisc.pkg_lagarisc.all;
 
 entity lagarisc_core is
     generic (
-        G_BOOT_ADDR                 : std_logic_vector(31 downto 0) := x"00000000";
+        G_BOOT_ADDR                 : std_logic_vector(31 downto 0) := x"80000000";
         G_INST_NB_ISSUES            : positive  := 3
     );
     port (

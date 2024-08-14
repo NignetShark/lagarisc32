@@ -10,7 +10,6 @@
     "files": [
         { "file": "src/hdl/pkg_lagarisc.vhd",               "language": "vhdl", "library":"lagarisc"},
         { "file": "src/hdl/lagarisc_fetch_issue_fifo.vhd",  "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_fetch_bram.vhd",        "language": "vhdl", "library":"lagarisc"},
         { "file": "src/hdl/lagarisc_fetch_axi4l.vhd",       "language": "vhdl", "library":"lagarisc"},
         { "file": "src/hdl/lagarisc_decode.vhd",            "language": "vhdl", "library":"lagarisc"},
         { "file": "src/hdl/lagarisc_regfile.vhd",           "language": "vhdl", "library":"lagarisc"},

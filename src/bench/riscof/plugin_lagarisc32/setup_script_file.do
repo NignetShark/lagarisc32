@@ -1,0 +1,1 @@
+add button restart_cocotb {do ../riscof_work/sim_build/runsim.do; do wave.do; run -all} Disable {-fg blue -bg yellow}

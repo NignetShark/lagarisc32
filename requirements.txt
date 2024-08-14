@@ -1,0 +1,8 @@
+cocotb==1.9.0
+cocotb-bus==0.2.1
+cocotbext-axi==0.1.24
+# Editable Git install with no remote (elf_memory==0.0.0)
+-e lib/python/elf_memory
+pyelftools==0.26
+riscof==1.25.3
+setuptools==72.1.0
