@@ -87,8 +87,7 @@ architecture rtl of lagarisc_decode is
     signal imm_shamt        : std_logic_vector(4 downto 0);
 
     signal imm_i_signed     : std_logic_vector(31 downto 0);
-    signal imm_i_unsigned   : std_logic_vector(31 downto 0);
-    signal imm_s_unsigned   : std_logic_vector(31 downto 0);
+    signal imm_s_signed     : std_logic_vector(31 downto 0);
     signal imm_b_signed     : std_logic_vector(31 downto 0);
     signal imm_b_unsigned   : std_logic_vector(31 downto 0);
     signal imm_j_signed     : std_logic_vector(31 downto 0);
@@ -161,24 +160,6 @@ architecture rtl of lagarisc_decode is
         return opcode;
     end function;
 
-    function select_imm_i(
-        signal p_inst_f3 : in std_logic_vector(2 downto 0);
-        signal p_imm_signed   : in std_logic_vector(31 downto 0);
-        signal p_imm_unsigned : in std_logic_vector(31 downto 0))
-    return std_logic_vector is
-        variable result : std_logic_vector(31 downto 0);
-    begin
-        case p_inst_f3 is
-            -- Unsigned operations
-            when C_F3_SLTU =>
-                result := p_imm_unsigned;
-            -- Signed operations
-            when others =>
-                result := p_imm_signed;
-        end case;
-        return result;
-    end function;
-
     function select_imm_b(
         signal p_inst_f3 : in std_logic_vector(2 downto 0);
         signal p_imm_signed   : in std_logic_vector(31 downto 0);
@@ -216,8 +197,7 @@ begin
     imm_shamt           <= FETCH_INST_DATA(24 downto 20);
 
     imm_i_signed      <= std_logic_vector(resize(signed(imm_i), 32));
-    imm_i_unsigned    <= std_logic_vector(resize(unsigned(imm_i), 32));
-    imm_s_unsigned    <= std_logic_vector(resize(unsigned(imm_s), 32));
+    imm_s_signed      <= std_logic_vector(resize(signed(imm_s), 32));
     imm_b_signed      <= std_logic_vector(resize(signed(imm_b), 32));
     imm_b_unsigned    <= std_logic_vector(resize(unsigned(imm_b), 32));
     imm_j_signed      <= std_logic_vector(resize(signed(imm_j), 32));
@@ -350,7 +330,7 @@ begin
                         when C_OP_ARTHI =>
                             EXEC_ALU_OPC        <= transl_alu_opcode(inst_f3, inst_f7, true);
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
-                            EXEC_ALU_IMM        <= select_imm_i(inst_f3, imm_i_signed, imm_i_unsigned);
+                            EXEC_ALU_IMM        <= imm_i_signed; -- Note: SLTIU use signed extended immediate
                             EXEC_RD_WE          <= '1';
 
                         -- Load from data port
@@ -363,7 +343,7 @@ begin
                             EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
                             EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_RS1;
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
-                            EXEC_ALU_IMM        <= imm_i_unsigned;
+                            EXEC_ALU_IMM        <= imm_i_signed;
 
                         -- Store to data port
                         when C_OP_STORE =>
@@ -375,7 +355,7 @@ begin
                             EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
                             EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_RS1;
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
-                            EXEC_ALU_IMM        <= imm_s_unsigned;
+                            EXEC_ALU_IMM        <= imm_s_signed;
 
                         -- Conditional Branches
                         when C_OP_BRANCH =>

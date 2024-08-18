@@ -49,13 +49,14 @@ architecture rtl of lagarisc_alu is
     signal op1_reversed         : std_logic_vector(31 downto 0);
     signal op2                  : std_logic_vector(31 downto 0);
     signal op2_comp2            : std_logic_vector(31 downto 0);
+    signal shamt                : std_logic_vector(4 downto 0);
 
     signal logic_is_equal           : std_logic;
     signal logic_is_lower_signed    : std_logic;
     signal logic_is_lower_unsigned  : std_logic;
 
     signal bitshift_value   : std_logic_vector(31 downto 0);
-    signal bitshift_counter : unsigned(DC_ALU_SHAMT'range);
+    signal bitshift_counter : unsigned(4 downto 0);
     signal bitshift_msb     : std_logic;
     signal bitshift_reverse : std_logic;
 
@@ -71,6 +72,9 @@ begin
     -- OP2
     op2             <= DC_RS2_DATA when DC_ALU_OP2_MUX = MUX_ALU_OP2_RS2 else DC_ALU_IMM;
     op2_comp2       <= std_logic_vector(unsigned(not op2) + 1); -- Two's complement
+
+    -- Shamt
+    shamt           <= DC_RS2_DATA(4 downto 0) when DC_ALU_OP2_MUX = MUX_ALU_OP2_RS2 else DC_ALU_SHAMT;
 
     -- Logic
     logic_is_equal              <= '1' when unsigned(op1) = unsigned(op2) else '0';
@@ -105,6 +109,9 @@ begin
                         if (DECODE_OUT_VALID = '1') and (EXEC_IN_READY = '1') then
                             -- By default, an output will be generated
                             alu_out_valid_int <= '1';
+
+
+
 
                             case DC_ALU_OPC is
                                 --------------------------------------------
@@ -143,7 +150,8 @@ begin
                                 -- Shifts : SLL/SRL/SRA
                                 --------------------------------------------
                                 when ALU_OPCODE_SLL  =>
-                                    bitshift_counter    <= unsigned(DC_ALU_SHAMT);
+
+                                    bitshift_counter    <= unsigned(shamt);
                                     bitshift_value      <= op1;
                                     bitshift_msb        <= '0';
                                     bitshift_reverse    <= '0';
@@ -154,7 +162,7 @@ begin
 
                                 when ALU_OPCODE_SRL =>
 
-                                    bitshift_counter    <= unsigned(DC_ALU_SHAMT);
+                                    bitshift_counter    <= unsigned(shamt);
                                     bitshift_value      <= op1_reversed;
                                     bitshift_msb        <= '0';
                                     bitshift_reverse    <= '1';
@@ -165,7 +173,7 @@ begin
 
                                 when ALU_OPCODE_SRA =>
 
-                                    bitshift_counter    <= unsigned(DC_ALU_SHAMT);
+                                    bitshift_counter    <= unsigned(shamt);
                                     bitshift_value      <= op1_reversed;
                                     bitshift_msb        <= op1(31);
                                     bitshift_reverse    <= '1';
