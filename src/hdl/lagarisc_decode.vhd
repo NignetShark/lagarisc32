@@ -329,16 +329,16 @@ begin
                     case inst_opcode is
                         -- LUI : Load Upper Immediat
                         when C_OP_LUI =>
-                            EXEC_ALU_IMM        <= imm_u;
                             EXEC_ALU_OPC        <= ALU_OPCODE_OP2;
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
+                            EXEC_ALU_IMM        <= imm_u;
                             EXEC_RD_WE          <= '1';
 
                         when C_OP_AUIPC =>
-                            EXEC_ALU_IMM        <= imm_u;
                             EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
                             EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_PC;
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
+                            EXEC_ALU_IMM        <= imm_u;
                             EXEC_RD_WE          <= '1';
 
                         -- Integer Register-Register Operations
@@ -350,8 +350,8 @@ begin
                         when C_OP_ARTHI =>
                             EXEC_ALU_OPC        <= transl_alu_opcode(inst_f3, inst_f7, true);
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
-                            EXEC_RD_WE          <= '1';
                             EXEC_ALU_IMM        <= select_imm_i(inst_f3, imm_i_signed, imm_i_unsigned);
+                            EXEC_RD_WE          <= '1';
 
                         -- Load from data port
                         when C_OP_LOAD =>
@@ -395,6 +395,7 @@ begin
                             EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_PC;
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
                             EXEC_ALU_IMM        <= C_CONSTANT_4;
+                            EXEC_RD_WE          <= '1';
 
                         -- Jump and link from register
                         when C_OP_JALR =>
@@ -407,6 +408,7 @@ begin
                             EXEC_ALU_OP1_MUX    <= MUX_ALU_OP1_PC;
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
                             EXEC_ALU_IMM        <= C_CONSTANT_4;
+                            EXEC_RD_WE          <= '1';
 
                         -- System opcode
                         when C_OP_SYSTEM =>
