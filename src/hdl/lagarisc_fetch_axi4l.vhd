@@ -140,7 +140,10 @@ begin
 
                     next_pc <= std_logic_vector(unsigned(pc_src) + to_unsigned(4, 32));
 
-                    axi_araddr_int  <= pc_src;
+                    -- Address is aligned with a 32bit word.
+                    axi_araddr_int <= (others => '0');
+                    axi_araddr_int(31 downto 2) <= pc_src(31 downto 2);
+
                     axi_arvalid_int <= '1';
 
                     fifo_push       <= '1';
