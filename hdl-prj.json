@@ -8,18 +8,18 @@
         ]
     },
     "files": [
-        { "file": "src/hdl/pkg_lagarisc.vhd",               "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_fetch_issue_fifo.vhd",  "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_fetch_axi4l.vhd",       "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_decode.vhd",            "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_regfile.vhd",           "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_alu.vhd",               "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_csr.vhd",               "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_lsu.vhd",               "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_stage_decode.vhd",      "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_stage_exec.vhd",        "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_stage_mem.vhd",         "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_stage_wb.vhd",          "language": "vhdl", "library":"lagarisc"},
-        { "file": "src/hdl/lagarisc_supervisor.vhd",        "language": "vhdl", "library":"lagarisc"}
+        { "file": "src/hdl/pkg_lagarisc.vhd",               "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_fetch_issue_fifo.vhd",  "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_fetch_axi4l.vhd",       "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_decode.vhd",            "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_regfile.vhd",           "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_alu.vhd",               "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_csr.vhd",               "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_lsu.vhd",               "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_stage_decode.vhd",      "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_stage_exec.vhd",        "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_stage_mem.vhd",         "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_stage_wb.vhd",          "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_supervisor.vhd",        "language": "vhdl", "library":"lagarisc" }
     ]
 }

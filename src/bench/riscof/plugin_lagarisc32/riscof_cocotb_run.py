@@ -92,13 +92,11 @@ async def riscof_run(dut):
     inst_axi_slave = AxiLiteSlaveRead(AxiLiteReadBus.from_prefix(dut, "INST_AXI"), dut.clk, dut.rst, target=mem)
     data_axi_slave = AxiLiteSlave(AxiLiteBus.from_prefix(dut, "DATA_AXI"), dut.clk, dut.rst, target=mem)
 
-    dut.inst_axi_rdata.value = 0xFFFF_FFFF
+    dut.inst_axi_rdata.value = 0xFFFF_FFFF # prevent Modelsim exception (=> integer exception on register id)
 
     # ======================================
     # == Running test
     # ======================================
-
-    cocotb.log.info(f"Triggering reset.")
 
     dut.rst.value = 1
     for i in range(10):
@@ -110,5 +108,5 @@ async def riscof_run(dut):
 
     cocotb.log.info(f"Running processor until halt request.")
     await halt.wait_until_halted()
-    cocotb.log.info(f"Processor halted. Signatured dumped to {sig_path}.")
+    cocotb.log.info(f"Processor halted. Signature dumped to {sig_path}.")
 

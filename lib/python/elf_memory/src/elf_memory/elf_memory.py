@@ -2,6 +2,7 @@ from elftools.elf.elffile import ELFFile
 from elftools.elf.sections import Section
 from elftools.elf.constants import SH_FLAGS
 import cocotb
+import binascii
 from cocotbext.axi.address_space import AddressSpace, Region
 
 class ElfSectionRegion(Region):
@@ -16,7 +17,7 @@ class ElfSectionRegion(Region):
 
     async def _write(self, address, data, **kwargs):
         #if self.is_writable:
-        cocotb.log.info(f"Writing to {self.name} : {hex(self.base)} + {hex(address)}")
+        cocotb.log.info(f"Writing to {self.name} : {hex(self.base + address)} : {binascii.hexlify(data).decode("ascii")}")
         self.data[address:address+len(data)] = data
         #else:
         #    raise Exception(f"Section {self.name} is not writable (Write attempt at {hex(self.base + address)})")

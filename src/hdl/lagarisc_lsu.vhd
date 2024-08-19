@@ -257,10 +257,10 @@ begin
                         case EXEC_INST_F3(1 downto 0) is
                             when C_STRB_BYTE    =>
                                 AXI_WSTRB(mem_addr_offset) <= '1';
-                                AXI_WDATA((8 * (mem_addr_offset_reg + 1)) - 1 downto 8 * mem_addr_offset_reg) <= EXEC_MEM_DIN(7 downto 0);
+                                AXI_WDATA((8 * (mem_addr_offset + 1)) - 1 downto 8 * mem_addr_offset) <= EXEC_MEM_DIN(7 downto 0);
                             when C_STRB_HALF    =>
                                 AXI_WSTRB((mem_addr_offset + 1) downto mem_addr_offset) <= "11";
-                                AXI_WDATA((8 * (mem_addr_offset_reg + 2)) - 1 downto 8 * mem_addr_offset_reg) <= EXEC_MEM_DIN(15 downto 0);
+                                AXI_WDATA((8 * (mem_addr_offset + 2)) - 1 downto 8 * mem_addr_offset) <= EXEC_MEM_DIN(15 downto 0);
                             when others => -- C_STRB_FULL
                                 AXI_WSTRB <= (others => '1');
                                 AXI_WDATA <= EXEC_MEM_DIN;
