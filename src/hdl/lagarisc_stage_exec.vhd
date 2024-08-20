@@ -29,7 +29,6 @@ entity lagarisc_stage_exec is
         DC_BRANCH_SRC           : in mux_branch_src_t;
         -- INST
         DC_INST_F3              : in std_logic_vector(2 downto 0);
-        DC_INST_F7              : in std_logic_vector(6 downto 0);
         -- RSX
         DC_RS1_ID               : in std_logic_vector(4 downto 0);
         DC_RS2_ID               : in std_logic_vector(4 downto 0);

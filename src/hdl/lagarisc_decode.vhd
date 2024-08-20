@@ -35,7 +35,6 @@ entity lagarisc_decode is
         EXEC_BRANCH_SRC         : out mux_branch_src_t;
         -- INST FX
         EXEC_INST_F3            : out std_logic_vector(2 downto 0);
-        EXEC_INST_F7            : out std_logic_vector(6 downto 0);
         -- RSX
         EXEC_RS1_ID             : out std_logic_vector(4 downto 0);
         EXEC_RS2_ID             : out std_logic_vector(4 downto 0);
@@ -231,7 +230,6 @@ begin
 
                 -- INST FX
                 EXEC_INST_F3            <= (others => '-');
-                EXEC_INST_F7            <= (others => '-');
 
                 -- RSX
                 inst_rs1_reg             <= (others => '0');
@@ -277,7 +275,6 @@ begin
 
                     -- INST
                     EXEC_INST_F3            <= inst_f3;
-                    EXEC_INST_F7            <= inst_f7;
 
                     -- RSX
                     inst_rs1_reg             <= inst_rs1;

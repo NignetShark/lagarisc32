@@ -24,4 +24,8 @@ src/bench/**/*.txt
 # Riscof build directory
 src/bench/riscof/riscof_work
 
+# Python editable libraries
 lib/python/**/*.egg-info
+
+# Vivado
+place/*

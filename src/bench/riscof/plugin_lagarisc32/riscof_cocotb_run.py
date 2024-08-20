@@ -92,7 +92,7 @@ async def riscof_run(dut):
     inst_axi_slave = AxiLiteSlaveRead(AxiLiteReadBus.from_prefix(dut, "INST_AXI"), dut.clk, dut.rst, target=mem)
     data_axi_slave = AxiLiteSlave(AxiLiteBus.from_prefix(dut, "DATA_AXI"), dut.clk, dut.rst, target=mem)
 
-    dut.inst_axi_rdata.value = 0xFFFF_FFFF # prevent Modelsim exception (=> integer exception on register id)
+    dut.inst_axi_rdata.value = 0xFFFF_FFFF # prevent Modelsim exception (=> integer exception on register id (not used))
 
     # ======================================
     # == Running test

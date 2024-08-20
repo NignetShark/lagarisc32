@@ -31,7 +31,6 @@ entity lagarisc_stage_decode is
         EXEC_BRANCH_SRC         : out mux_branch_src_t;
         -- INST FX
         EXEC_INST_F3            : out std_logic_vector(2 downto 0);
-        EXEC_INST_F7            : out std_logic_vector(6 downto 0);
         -- RSX
         EXEC_RS1_ID             : out std_logic_vector(4 downto 0);
         EXEC_RS2_ID             : out std_logic_vector(4 downto 0);
@@ -97,7 +96,6 @@ begin
             EXEC_BRANCH_SRC         => EXEC_BRANCH_SRC,
             -- INST FX
             EXEC_INST_F3            => EXEC_INST_F3,
-            EXEC_INST_F7            => EXEC_INST_F7,
             -- RSX
             EXEC_RS1_ID             => EXEC_RS1_ID,
             EXEC_RS2_ID             => EXEC_RS2_ID,

@@ -94,15 +94,11 @@ end entity;
 
 architecture rtl of lagarisc_stage_mem is
     signal mem_in_ready_int : std_logic;
-    signal mem_out_valid_int : std_logic;
     signal lsu_in_ready_int : std_logic;
     signal lsu_out_valid_int : std_logic;
 
-    signal valid_overload : std_logic;
-
 begin
     mem_in_ready_int <= lsu_in_ready_int and (not STALL);
-    mem_out_valid_int <= lsu_out_valid_int or valid_overload;
     MEM_IN_READY <= mem_in_ready_int;
 
     inst_lsu : lagarisc_lsu
@@ -156,7 +152,6 @@ begin
         );
 
     process (CLK)
-        variable v_branch_taken : std_logic;
     begin
         if rising_edge(CLK) then
             if RST = '1' then
@@ -175,19 +170,13 @@ begin
                 -- WB MUX
                 WB_WB_MUX               <= MUX_WB_SRC_ALU;
 
-                -- Overload validity for non LSU operations
-                valid_overload <= '0';
             else
-                v_branch_taken := '0';
 
                 if STALL = '1' then
                     -- Stalling memory stage can be required by the supervision
                     -- when fetch stage is not ready and a branch must be taken
                     null;
                 elsif (mem_in_ready_int = '1') and (EXEC_OUT_VALID = '1') then
-                    -- When not LSU related, overload validity
-                    valid_overload <= not EXEC_MEM_EN;
-
                     -------------------------------------------------
                     -- Register forwarding
                     -------------------------------------------------
@@ -210,21 +199,12 @@ begin
 
                     case EXEC_BRANCH_OP is
                         when BRANCH_OP_COND =>
-                            v_branch_taken := EXEC_ALU_RESULT(0);
+                            SUP_BRANCH_TAKEN <= EXEC_ALU_RESULT(0);
                         when BRANCH_OP_UNCOND =>
-                            v_branch_taken := '1';
+                            SUP_BRANCH_TAKEN <= '1';
                         when others => -- BRANCH_NOP
-                            v_branch_taken := '0';
+                            SUP_BRANCH_TAKEN <= '0';
                     end case;
-
-                    SUP_BRANCH_TAKEN <= v_branch_taken;
-
-                    -- if v_branch_taken = '1' then
-                    --     -- Invalid WB
-                    --     WB_RD_WE            <= '0';
-                    --     WB_MEM_WE           <= '0';
-                    --     WB_CSR_OPCODE       <= CSR_OPCODE_READ;
-                    -- end if;
 
                 else
                     SUP_BRANCH_TAKEN    <= '0';

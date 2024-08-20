@@ -70,7 +70,6 @@ architecture rtl of lagarisc_lsu is
     signal mem_addr_aligned     : std_logic_vector(31 downto 0);
     signal mem_addr_offset      : integer range 3 downto 0;
     signal mem_addr_offset_reg  : integer range 3 downto 0;
-    signal mem_addr_wstrb       : std_logic_vector(3 downto 0);
     signal exec_inst_f3_reg     : std_logic_vector(2 downto 0);
 
 
@@ -124,7 +123,6 @@ begin
         if rising_edge(clk) then
             if RST = '1' then
                 exec_inst_f3_reg     <= (others => '0');
-                mem_addr_wstrb       <= (others => '0');
                 mem_addr_offset_reg  <= 0;
 
                 -- Control & cmd

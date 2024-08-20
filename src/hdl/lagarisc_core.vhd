@@ -76,7 +76,6 @@ architecture rtl of lagarisc_core is
     signal exec_branch_imm          : std_logic_vector(31 downto 0);
     signal exec_branch_src          : mux_branch_src_t;
     signal exec_inst_f3             : std_logic_vector(2 downto 0);
-    signal exec_inst_f7             : std_logic_vector(6 downto 0);
     signal exec_rs1_id              : std_logic_vector(4 downto 0);
     signal exec_rs2_id              : std_logic_vector(4 downto 0);
     signal exec_rs1_data            : std_logic_vector(31 downto 0);
@@ -213,7 +212,6 @@ begin
             EXEC_BRANCH_SRC             => exec_branch_src,
             -- ALU
             EXEC_INST_F3                => exec_inst_f3,
-            EXEC_INST_F7                => exec_inst_f7,
             -- RSX
             EXEC_RS1_DATA               => exec_rs1_data,
             EXEC_RS2_DATA               => exec_rs2_data,
@@ -267,7 +265,6 @@ begin
             DC_BRANCH_SRC           => exec_branch_src,
             -- INST
             DC_INST_F3              => exec_inst_f3,
-            DC_INST_F7              => exec_inst_f7,
             -- RSX
             DC_RS1_ID               => exec_rs1_id,
             DC_RS2_ID               => exec_rs2_id,
