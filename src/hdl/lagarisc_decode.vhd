@@ -47,9 +47,9 @@ entity lagarisc_decode is
         EXEC_ALU_SHAMT          : out std_logic_vector(4 downto 0);
         EXEC_ALU_OP1_MUX        : out mux_alu_op1_t;
         EXEC_ALU_OP2_MUX        : out mux_alu_op2_t;
-        -- MEM
-        EXEC_MEM_EN             : out std_logic;
-        EXEC_MEM_WE             : out std_logic;
+        -- LSU
+        EXEC_LSU_EN             : out std_logic;
+        EXEC_LSU_WE             : out std_logic;
         -- CSR
         EXEC_CSR_ID             : out std_logic_vector(11 downto 0);
         EXEC_CSR_OPCODE         : out csr_opcode_t;
@@ -248,9 +248,9 @@ begin
                 EXEC_ALU_OP1_MUX        <= MUX_ALU_OP1_RS1;
                 EXEC_ALU_OP2_MUX        <= MUX_ALU_OP2_RS2;
 
-                -- MEM
-                EXEC_MEM_EN             <= '0';
-                EXEC_MEM_WE             <= '0';
+                -- LSU
+                EXEC_LSU_EN             <= '0';
+                EXEC_LSU_WE             <= '0';
 
                 -- CSR
                 EXEC_CSR_ID             <= imm_i;
@@ -290,9 +290,9 @@ begin
                     EXEC_ALU_OP1_MUX        <= MUX_ALU_OP1_RS1;
                     EXEC_ALU_OP2_MUX        <= MUX_ALU_OP2_RS2;
 
-                    -- MEM
-                    EXEC_MEM_EN             <= '0';
-                    EXEC_MEM_WE             <= '0';
+                    -- LSU
+                    EXEC_LSU_EN             <= '0';
+                    EXEC_LSU_WE             <= '0';
 
                     -- CSR
                     EXEC_CSR_OPCODE         <= CSR_OPCODE_READ;
@@ -332,9 +332,9 @@ begin
 
                         -- Load from data port
                         when C_OP_LOAD =>
-                            EXEC_WB_MUX <= MUX_WB_SRC_MEM;
-                            EXEC_MEM_EN <= '1';
-                            EXEC_MEM_WE <= '0';
+                            EXEC_WB_MUX <= MUX_WB_SRC_LSU;
+                            EXEC_LSU_EN <= '1';
+                            EXEC_LSU_WE <= '0';
 
                             -- Addr = rs1 + imm
                             EXEC_ALU_OPC        <= ALU_OPCODE_ADD;
@@ -342,11 +342,13 @@ begin
                             EXEC_ALU_OP2_MUX    <= MUX_ALU_OP2_IMM;
                             EXEC_ALU_IMM        <= imm_i_signed;
 
+                            EXEC_RD_WE          <= '1';
+
                         -- Store to data port
                         when C_OP_STORE =>
-                            EXEC_WB_MUX <= MUX_WB_SRC_MEM;
-                            EXEC_MEM_EN <= '1';
-                            EXEC_MEM_WE <= '1';
+                            EXEC_WB_MUX <= MUX_WB_SRC_LSU;
+                            EXEC_LSU_EN <= '1';
+                            EXEC_LSU_WE <= '1';
 
                             -- Addr = rs1 + imm
                             EXEC_ALU_OPC        <= ALU_OPCODE_ADD;

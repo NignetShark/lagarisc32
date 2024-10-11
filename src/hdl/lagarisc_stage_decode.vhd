@@ -45,9 +45,9 @@ entity lagarisc_stage_decode is
         EXEC_ALU_SHAMT          : out std_logic_vector(4 downto 0);
         EXEC_ALU_OP1_MUX        : out mux_alu_op1_t;
         EXEC_ALU_OP2_MUX        : out mux_alu_op2_t;
-        -- MEM
-        EXEC_MEM_EN             : out std_logic;
-        EXEC_MEM_WE             : out std_logic;
+        -- LSU
+        EXEC_LSU_EN             : out std_logic;
+        EXEC_LSU_WE             : out std_logic;
         -- CSR
         EXEC_CSR_ID             : out std_logic_vector(11 downto 0);
         EXEC_CSR_OPCODE         : out csr_opcode_t;
@@ -57,7 +57,8 @@ entity lagarisc_stage_decode is
         -- ==== > WRITE-BACK ====
         WB_RD_ID                : in std_logic_vector(4 downto 0);
         WB_RD_DATA              : in std_logic_vector(31 downto 0);
-        WB_RD_WE                : in std_logic
+        WB_RD_WE                : in std_logic;
+        WB_RD_VALID             : in std_logic
     );
 end entity;
 
@@ -108,9 +109,9 @@ begin
             EXEC_ALU_SHAMT          => EXEC_ALU_SHAMT,
             EXEC_ALU_OP1_MUX        => EXEC_ALU_OP1_MUX,
             EXEC_ALU_OP2_MUX        => EXEC_ALU_OP2_MUX,
-            -- MEM
-            EXEC_MEM_EN             => EXEC_MEM_EN,
-            EXEC_MEM_WE             => EXEC_MEM_WE,
+            -- LSU
+            EXEC_LSU_EN             => EXEC_LSU_EN,
+            EXEC_LSU_WE             => EXEC_LSU_WE,
             -- CSR
             EXEC_CSR_ID             => EXEC_CSR_ID,
             EXEC_CSR_OPCODE         => EXEC_CSR_OPCODE,
@@ -134,7 +135,8 @@ begin
             -- From memory stage
             WB_RD_ID        => WB_RD_ID,
             WB_RD_DATA      => WB_RD_DATA,
-            WB_RD_WE        => WB_RD_WE
+            WB_RD_WE        => WB_RD_WE,
+            WB_RD_VALID     => WB_RD_VALID
         );
 
 end architecture;

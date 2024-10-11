@@ -64,6 +64,7 @@ architecture rtl of lagarisc_core is
     signal exec_in_ready            : std_logic;
     signal exec_out_valid           : std_logic;
     signal mem_in_ready             : std_logic;
+    signal mem_out_valid            : std_logic;
 
     signal fetch_branch_taken       : std_logic;
     signal fetch_pc_taken           : std_logic_vector(31 downto 0);
@@ -87,8 +88,8 @@ architecture rtl of lagarisc_core is
     signal exec_alu_shamt           : std_logic_vector(4 downto 0);
     signal exec_alu_op1_mux         : mux_alu_op1_t;
     signal exec_alu_op2_mux         : mux_alu_op2_t;
-    signal exec_mem_en              : std_logic;
-    signal exec_mem_we              : std_logic;
+    signal exec_lsu_en              : std_logic;
+    signal exec_lsu_we              : std_logic;
     signal exec_csr_id              : std_logic_vector(11 downto 0);
     signal exec_csr_opcode          : csr_opcode_t;
     signal exec_wb_mux              : mux_wb_src_t;
@@ -97,12 +98,13 @@ architecture rtl of lagarisc_core is
     signal mem_pc_not_taken         : std_logic_vector(31 downto 0);
     signal mem_branch_op            : branch_op_t;
     signal mem_inst_f3              : std_logic_vector(2 downto 0);
+    signal mem_rs2_id               : std_logic_vector(4 downto 0);
+    signal mem_rs2_data             : std_logic_vector(31 downto 0);
     signal mem_rd_id                : std_logic_vector(4 downto 0);
     signal mem_rd_we                : std_logic;
     signal mem_alu_result           : std_logic_vector(31 downto 0);
-    signal mem_mem_din              : std_logic_vector(31 downto 0);
-    signal mem_mem_en               : std_logic;
-    signal mem_mem_we               : std_logic;
+    signal mem_lsu_en               : std_logic;
+    signal mem_lsu_we               : std_logic;
     signal mem_csr_id               : std_logic_vector(11 downto 0);
     signal mem_csr_opcode           : csr_opcode_t;
     signal mem_wb_mux               : mux_wb_src_t;
@@ -110,9 +112,7 @@ architecture rtl of lagarisc_core is
     signal wb_pc_not_taken          : std_logic_vector(31 downto 0);
     signal wb_rd_id                 : std_logic_vector(4 downto 0);
     signal wb_rd_we                 : std_logic;
-    signal wb_alu_result            : std_logic_vector(31 downto 0);
-    signal wb_mem_dout              : std_logic_vector(31 downto 0);
-    signal wb_mem_we                : std_logic;
+    signal wb_rd_data               : std_logic_vector(31 downto 0);
     signal wb_csr_id                : std_logic_vector(11 downto 0);
     signal wb_csr_opcode            : csr_opcode_t;
     signal wb_wb_mux                : mux_wb_src_t;
@@ -120,6 +120,7 @@ architecture rtl of lagarisc_core is
     signal dc_rd_id                 : std_logic_vector(4 downto 0);
     signal dc_rd_data               : std_logic_vector(31 downto 0);
     signal dc_rd_we                 : std_logic;
+    signal dc_rd_valid              : std_logic;
 
     signal sup_branch_taken         : std_logic;
     signal sup_pc_taken             : std_logic_vector(31 downto 0);
@@ -226,9 +227,9 @@ begin
             EXEC_ALU_SHAMT              => exec_alu_shamt,
             EXEC_ALU_OP1_MUX            => exec_alu_op1_mux,
             EXEC_ALU_OP2_MUX            => exec_alu_op2_mux,
-            -- MEM
-            EXEC_MEM_EN                 => exec_mem_en,
-            EXEC_MEM_WE                 => exec_mem_we,
+            -- LSU
+            EXEC_LSU_EN                 => exec_lsu_en,
+            EXEC_LSU_WE                 => exec_lsu_we,
             -- CSR
             EXEC_CSR_ID                 => exec_csr_id,
             EXEC_CSR_OPCODE             => exec_csr_opcode,
@@ -238,7 +239,8 @@ begin
             -- ==== > WRITE-BACK ====
             WB_RD_ID                    => dc_rd_id,
             WB_RD_DATA                  => dc_rd_data,
-            WB_RD_WE                    => dc_rd_we
+            WB_RD_WE                    => dc_rd_we,
+            WB_RD_VALID                 => dc_rd_valid
         );
 
     inst_stage_exec : lagarisc_stage_exec
@@ -279,9 +281,9 @@ begin
             DC_ALU_SHAMT            => exec_alu_shamt,
             DC_ALU_OP1_MUX          => exec_alu_op1_mux,
             DC_ALU_OP2_MUX          => exec_alu_op2_mux,
-            -- MEM
-            DC_MEM_EN               => exec_mem_en,
-            DC_MEM_WE               => exec_mem_we,
+            -- LSU
+            DC_LSU_EN               => exec_lsu_en,
+            DC_LSU_WE               => exec_lsu_we,
             -- CSR
             DC_CSR_ID               => exec_csr_id,
             DC_CSR_OPCODE           => exec_csr_opcode,
@@ -295,19 +297,22 @@ begin
             MEM_BRANCH_OP           => mem_branch_op,
             -- INST
             MEM_INST_F3             => mem_inst_f3,
+            -- RSX
+            MEM_RS2_ID              => mem_rs2_id,
+            MEM_RS2_DATA            => mem_rs2_data,
             -- RD
             MEM_RD_ID               => mem_rd_id,
             MEM_RD_WE               => mem_rd_we,
             -- FWD RD
             MEM_FWD_RD_ID           => mem_rd_id,
             MEM_FWD_RD_DATA         => mem_alu_result,
-            MEM_FWD_RD_WE           => mem_rd_we,
+            MEM_FWD_RD_FWDABLE      => mem_rd_we,
+            MEM_FWD_RD_VALID        => exec_out_valid,
             -- ALU
             MEM_ALU_RESULT          => mem_alu_result,
-            -- MEM
-            MEM_MEM_DIN             => mem_mem_din,
-            MEM_MEM_EN              => mem_mem_en,
-            MEM_MEM_WE              => mem_mem_we,
+            -- LSU
+            MEM_LSU_EN              => mem_lsu_en,
+            MEM_LSU_WE              => mem_lsu_we,
             -- CSR
             MEM_CSR_ID              => mem_csr_id,
             MEM_CSR_OPCODE          => mem_csr_opcode,
@@ -317,13 +322,11 @@ begin
             -- ==== > WB ====
             WB_FWD_RD_ID            => dc_rd_id,
             WB_FWD_RD_DATA          => dc_rd_data,
-            WB_FWD_RD_WE            => dc_rd_we
+            WB_FWD_RD_FWDABLE       => dc_rd_we,
+            WB_FWD_RD_VALID         => dc_rd_valid
         );
 
     inst_stage_mem : lagarisc_stage_mem
-        generic map (
-            G_BOOT_ADDR     => G_BOOT_ADDR
-        )
         port map (
             CLK                     => CLK,
             RST                     => RST,
@@ -335,6 +338,7 @@ begin
 
             EXEC_OUT_VALID          => exec_out_valid,
             MEM_IN_READY            => mem_in_ready,
+            MEM_OUT_VALID           => mem_out_valid,
 
             -- ==== > EXEC ====
             -- PC
@@ -343,15 +347,17 @@ begin
             EXEC_BRANCH_OP          => mem_branch_op,
             -- INST
             EXEC_INST_F3            => mem_inst_f3,
+            -- RSX
+            EXEC_RS2_ID             => mem_rs2_id,
+            EXEC_RS2_DATA           => mem_rs2_data,
             -- RD
             EXEC_RD_ID              => mem_rd_id,
             EXEC_RD_WE              => mem_rd_we,
             -- ALU
             EXEC_ALU_RESULT         => mem_alu_result,
-            -- MEM
-            EXEC_MEM_DIN            => mem_mem_din,
-            EXEC_MEM_EN             => mem_mem_en,
-            EXEC_MEM_WE             => mem_mem_we,
+            -- LSU
+            EXEC_LSU_EN             => mem_lsu_en,
+            EXEC_LSU_WE             => mem_lsu_we,
             -- CSR
             EXEC_CSR_ID             => mem_csr_id,
             EXEC_CSR_OPCODE         => mem_csr_opcode,
@@ -364,16 +370,18 @@ begin
             -- RD
             WB_RD_ID                => wb_rd_id,
             WB_RD_WE                => wb_rd_we,
-            -- ALU
-            WB_ALU_RESULT           => wb_alu_result,
-            -- MEM
-            WB_MEM_DOUT             => wb_mem_dout,
-            WB_MEM_WE               => wb_mem_we,
+            WB_RD_DATA              => wb_rd_data,
             -- CSR
             WB_CSR_ID               => wb_csr_id,
             WB_CSR_OPCODE           => wb_csr_opcode,
             -- WB MUX
             WB_WB_MUX               => wb_wb_mux,
+
+            -- ==== > WB ====
+            WB_FWD_RD_ID            => dc_rd_id,
+            WB_FWD_RD_DATA          => dc_rd_data,
+            WB_FWD_RD_FWDABLE       => dc_rd_we,
+            WB_FWD_RD_VALID         => dc_rd_valid,
 
             -- ==== SUP > ====
             -- PC
@@ -409,17 +417,16 @@ begin
             CLK                 => CLK,
             RST                 => RST,
 
+            -- ==== Control & command ====
+            MEM_OUT_VALID       => mem_out_valid,
+
             -- ==== > MEM ====
             -- PC
             MEM_PC_NOT_TAKEN    => wb_pc_not_taken,
             -- RD
             MEM_RD_ID           => wb_rd_id,
             MEM_RD_WE           => wb_rd_we,
-            -- ALU
-            MEM_ALU_RESULT      => wb_alu_result,
-            -- MEM
-            MEM_MEM_DOUT        => wb_mem_dout,
-            MEM_MEM_WE          => wb_mem_we,
+            MEM_RD_DATA         => wb_rd_data,
             -- CSR
             MEM_CSR_ID          => wb_csr_id,
             MEM_CSR_OPCODE      => wb_csr_opcode,
@@ -429,7 +436,8 @@ begin
             -- ==== DECODE > ====
             DC_RD_ID            => dc_rd_id,
             DC_RD_DATA          => dc_rd_data,
-            DC_RD_WE            => dc_rd_we
+            DC_RD_WE            => dc_rd_we,
+            DC_RD_VALID         => dc_rd_valid
         );
 
 

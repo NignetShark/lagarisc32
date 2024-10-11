@@ -22,15 +22,15 @@ entity lagarisc_lsu is
         -- ==== > EXEC ====
         -- INST
         EXEC_INST_F3            : in std_logic_vector(2 downto 0);
-        -- MEM
-        EXEC_MEM_ADDR           : in std_logic_vector(31 downto 0);
-        EXEC_MEM_DIN            : in std_logic_vector(31 downto 0);
-        EXEC_MEM_EN             : in std_logic;
-        EXEC_MEM_WE             : in std_logic;
+        -- LSU
+        EXEC_LSU_ADDR           : in std_logic_vector(31 downto 0);
+        EXEC_LSU_DIN            : in std_logic_vector(31 downto 0);
+        EXEC_LSU_EN             : in std_logic;
+        EXEC_LSU_WE             : in std_logic;
 
         -- ==== WB > ====
-        WB_MEM_DOUT             : out std_logic_vector(31 downto 0);
-        WB_MEM_WE               : out std_logic;
+        WB_LSU_DOUT             : out std_logic_vector(31 downto 0);
+        WB_LSU_WE               : out std_logic;
 
         -- ==== > AXI4L interface > ====
         -- write access
@@ -91,14 +91,14 @@ begin
 
     -- Control & cmd
     FLUSH_ACK           <= FLUSH and (not lsu_busy);
-    lsu_in_ready_int    <= axi_r_handshake_reg or axi_b_handshake or not(lsu_busy);
+    lsu_in_ready_int    <= not(lsu_busy);
     LSU_IN_READY        <= lsu_in_ready_int;
 
-    lsu_valid_mem_en    <= EXEC_MEM_EN and EXEC_OUT_VALID;
+    lsu_valid_mem_en    <= (EXEC_LSU_EN and EXEC_OUT_VALID) and not(FLUSH);
 
     -- Memory alignment
-    mem_addr_aligned    <= EXEC_MEM_ADDR(31 downto 2) & "00";
-    mem_addr_offset     <= to_integer(unsigned(EXEC_MEM_ADDR(1 downto 0)));
+    mem_addr_aligned    <= EXEC_LSU_ADDR(31 downto 2) & "00";
+    mem_addr_offset     <= to_integer(unsigned(EXEC_LSU_ADDR(1 downto 0)));
 
     -- AXI4 handshakes
     axi_aw_handshake    <= axi_awvalid_int and AXI_AWREADY;
@@ -130,8 +130,8 @@ begin
                 lsu_busy <= '0';
 
                 -- Registered output
-                WB_MEM_WE   <= '0';
-                WB_MEM_DOUT <= (others => '-');
+                WB_LSU_WE   <= '0';
+                WB_LSU_DOUT <= (others => '-');
 
                 -- AXI signals
                 AXI_AWADDR  <= (others => '-');
@@ -146,7 +146,6 @@ begin
 
             else
                 -- Default values
-                WB_MEM_WE       <= '0';
                 LSU_OUT_VALID   <= '0';
                 axi_r_handshake_reg <= axi_r_handshake;
 
@@ -177,44 +176,35 @@ begin
                 if axi_r_handshake = '1' then
                     axi_rready_int <= '0';
                     LSU_OUT_VALID  <= '1';
-                    -- Release busy-ness in the next clock (see axi_r_handshake_reg)
+                    lsu_busy <= '0';
 
                     -- Process read data & realign
                     case exec_inst_f3_reg(1 downto 0) is
                         when C_STRB_BYTE =>
                             if exec_inst_f3_reg(2) = '1' then
-                                WB_MEM_DOUT <= std_logic_vector(resize(unsigned(AXI_RDATA((8 * (mem_addr_offset_reg + 1)) - 1 downto 8 * mem_addr_offset_reg)), 32));
+                                WB_LSU_DOUT <= std_logic_vector(resize(unsigned(AXI_RDATA((8 * (mem_addr_offset_reg + 1)) - 1 downto 8 * mem_addr_offset_reg)), 32));
                             else
-                                WB_MEM_DOUT <= std_logic_vector(resize(signed(AXI_RDATA((8 * (mem_addr_offset_reg + 1)) - 1 downto 8 * mem_addr_offset_reg)), 32));
+                                WB_LSU_DOUT <= std_logic_vector(resize(signed(AXI_RDATA((8 * (mem_addr_offset_reg + 1)) - 1 downto 8 * mem_addr_offset_reg)), 32));
                             end if;
 
                         when C_STRB_HALF =>
                             if exec_inst_f3_reg(2) = '1' then
-                                WB_MEM_DOUT <= std_logic_vector(resize(unsigned(AXI_RDATA((8 * (mem_addr_offset_reg + 2)) - 1 downto 8 * mem_addr_offset_reg)), 32));
+                                WB_LSU_DOUT <= std_logic_vector(resize(unsigned(AXI_RDATA((8 * (mem_addr_offset_reg + 2)) - 1 downto 8 * mem_addr_offset_reg)), 32));
                             else
-                                WB_MEM_DOUT <= std_logic_vector(resize(signed(AXI_RDATA((8 * (mem_addr_offset_reg + 2)) - 1 downto 8 * mem_addr_offset_reg)), 32));
+                                WB_LSU_DOUT <= std_logic_vector(resize(signed(AXI_RDATA((8 * (mem_addr_offset_reg + 2)) - 1 downto 8 * mem_addr_offset_reg)), 32));
                             end if;
 
                         when others => -- C_STRB_FULL
-                            WB_MEM_DOUT <= AXI_RDATA;
+                            WB_LSU_DOUT <= AXI_RDATA;
                     end case;
 
                     -- Handle read error
                     if AXI_RESP /= C_AXI4_EXOKAY then
-                        WB_MEM_WE    <= '1';
-                    else
                         -- TODO: handle error
                     end if;
 
                     -- The LSU will take an extra clock cycle
                     -- in order to geneate a memory write to WB stage
-                end if;
-
-
-                if axi_r_handshake_reg = '1' then
-                    -- End of the extra clock cycle for WB stage
-                    WB_MEM_WE <= '0';
-                    lsu_busy <= '0';
                 end if;
 
                 ----------------------------------------------
@@ -242,7 +232,7 @@ begin
                     exec_inst_f3_reg    <= EXEC_INST_F3;
                     mem_addr_offset_reg <= mem_addr_offset;
 
-                    if EXEC_MEM_WE = '1' then
+                    if EXEC_LSU_WE = '1' then
                         -- Start a new WRITE transaction
                         AXI_AWADDR      <= mem_addr_aligned;
                         AXI_WDATA       <= (others => '0');
@@ -255,13 +245,13 @@ begin
                         case EXEC_INST_F3(1 downto 0) is
                             when C_STRB_BYTE    =>
                                 AXI_WSTRB(mem_addr_offset) <= '1';
-                                AXI_WDATA((8 * (mem_addr_offset + 1)) - 1 downto 8 * mem_addr_offset) <= EXEC_MEM_DIN(7 downto 0);
+                                AXI_WDATA((8 * (mem_addr_offset + 1)) - 1 downto 8 * mem_addr_offset) <= EXEC_LSU_DIN(7 downto 0);
                             when C_STRB_HALF    =>
                                 AXI_WSTRB((mem_addr_offset + 1) downto mem_addr_offset) <= "11";
-                                AXI_WDATA((8 * (mem_addr_offset + 2)) - 1 downto 8 * mem_addr_offset) <= EXEC_MEM_DIN(15 downto 0);
+                                AXI_WDATA((8 * (mem_addr_offset + 2)) - 1 downto 8 * mem_addr_offset) <= EXEC_LSU_DIN(15 downto 0);
                             when others => -- C_STRB_FULL
                                 AXI_WSTRB <= (others => '1');
-                                AXI_WDATA <= EXEC_MEM_DIN;
+                                AXI_WDATA <= EXEC_LSU_DIN;
                         end case;
                     else
                         -- Start a new READ transaction
@@ -278,7 +268,7 @@ begin
                     if lsu_busy = '1' then
                         null; -- Defered flush : wait AXI transaction to end
                     else
-                        WB_MEM_WE <= '0';
+                        LSU_OUT_VALID <= '0';
                     end if;
                 end if;
 

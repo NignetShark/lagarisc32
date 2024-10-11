@@ -12,7 +12,7 @@ package pkg_lagarisc is
 
     type mux_alu_op1_t is (MUX_ALU_OP1_RS1, MUX_ALU_OP1_PC);
     type mux_alu_op2_t is (MUX_ALU_OP2_RS2, MUX_ALU_OP2_IMM);
-    type mux_wb_src_t  is (MUX_WB_SRC_MEM, MUX_WB_SRC_ALU, MUX_WB_SRC_PC, MUX_WB_SRC_CSR);
+    type mux_wb_src_t  is (MUX_WB_SRC_LSU, MUX_WB_SRC_ALU, MUX_WB_SRC_CSR);
 
     -----------------------------------------------------
     -- RV32I OPCODES
@@ -284,16 +284,17 @@ package pkg_lagarisc is
             EXEC_ALU_SHAMT          : out std_logic_vector(4 downto 0);
             EXEC_ALU_OP1_MUX        : out mux_alu_op1_t;
             EXEC_ALU_OP2_MUX        : out mux_alu_op2_t;
-            -- MEM
-            EXEC_MEM_EN             : out std_logic;
-            EXEC_MEM_WE             : out std_logic;
+            -- LSU
+            EXEC_LSU_EN             : out std_logic;
+            EXEC_LSU_WE             : out std_logic;
             -- WB MUX
             EXEC_WB_MUX             : out mux_wb_src_t;
 
             -- ==== > WRITE-BACK ====
             WB_RD_ID                : in std_logic_vector(4 downto 0);
             WB_RD_DATA              : in std_logic_vector(31 downto 0);
-            WB_RD_WE                : in std_logic
+            WB_RD_WE                : in std_logic;
+            WB_RD_VALID             : in std_logic
         );
     end component;
 
@@ -335,9 +336,9 @@ package pkg_lagarisc is
             DC_ALU_SHAMT            : in std_logic_vector(4 downto 0);
             DC_ALU_OP1_MUX          : in mux_alu_op1_t;
             DC_ALU_OP2_MUX          : in mux_alu_op2_t;
-            -- MEM
-            DC_MEM_EN               : in std_logic;
-            DC_MEM_WE               : in std_logic;
+            -- LSU
+            DC_LSU_EN               : in std_logic;
+            DC_LSU_WE               : in std_logic;
             -- CSR
             DC_CSR_ID               : in std_logic_vector(11 downto 0);
             DC_CSR_OPCODE           : in csr_opcode_t;
@@ -351,19 +352,23 @@ package pkg_lagarisc is
             MEM_BRANCH_OP           : out branch_op_t;
             -- INST
             MEM_INST_F3             : out std_logic_vector(2 downto 0);
+            -- RSX
+            MEM_RS2_ID              : out std_logic_vector(4 downto 0);
+            MEM_RS2_DATA            : out std_logic_vector(31 downto 0);
             -- RD
             MEM_RD_ID               : out std_logic_vector(4 downto 0);
             MEM_RD_WE               : out std_logic;
             -- FWD RD
             MEM_FWD_RD_ID           : in std_logic_vector(4 downto 0);
             MEM_FWD_RD_DATA         : in std_logic_vector(31 downto 0);
-            MEM_FWD_RD_WE           : in std_logic;
+            MEM_FWD_RD_FWDABLE      : in std_logic;
+            MEM_FWD_RD_VALID        : in std_logic;
+
             -- ALU
             MEM_ALU_RESULT          : out std_logic_vector(31 downto 0);
-            -- MEM
-            MEM_MEM_DIN             : out std_logic_vector(31 downto 0);
-            MEM_MEM_EN              : out std_logic;
-            MEM_MEM_WE              : out std_logic;
+            -- LSU
+            MEM_LSU_EN              : out std_logic;
+            MEM_LSU_WE              : out std_logic;
             -- CSR
             MEM_CSR_ID              : out std_logic_vector(11 downto 0);
             MEM_CSR_OPCODE          : out csr_opcode_t;
@@ -373,14 +378,12 @@ package pkg_lagarisc is
             -- ==== > WB ====
             WB_FWD_RD_ID            : in std_logic_vector(4 downto 0);
             WB_FWD_RD_DATA          : in std_logic_vector(31 downto 0);
-            WB_FWD_RD_WE            : in std_logic
+            WB_FWD_RD_FWDABLE       : in std_logic;
+            WB_FWD_RD_VALID         : in std_logic
         );
     end component;
 
     component lagarisc_stage_mem is
-        generic (
-            G_BOOT_ADDR     : std_logic_vector(31 downto 0) := x"00000000"
-        );
         port (
             CLK                     : in std_logic;
             RST                     : in std_logic;
@@ -392,8 +395,8 @@ package pkg_lagarisc is
 
             EXEC_OUT_VALID          : in std_logic;
             MEM_IN_READY            : out std_logic;
+            MEM_OUT_VALID           : out std_logic;
             -- WB stage is always read
-            -- Mem output is always valid (at least control signals)
 
             -- ==== > EXEC ====
             -- PC
@@ -402,15 +405,17 @@ package pkg_lagarisc is
             EXEC_BRANCH_OP          : in branch_op_t;
             -- INST
             EXEC_INST_F3            : in std_logic_vector(2 downto 0);
+            -- RSX
+            EXEC_RS2_ID             : in std_logic_vector(4 downto 0);
+            EXEC_RS2_DATA           : in std_logic_vector(31 downto 0);
             -- RD
             EXEC_RD_ID              : in std_logic_vector(4 downto 0);
             EXEC_RD_WE              : in std_logic;
             -- ALU
             EXEC_ALU_RESULT         : in std_logic_vector(31 downto 0);
-            -- MEM
-            EXEC_MEM_DIN            : in std_logic_vector(31 downto 0);
-            EXEC_MEM_EN             : in std_logic;
-            EXEC_MEM_WE             : in std_logic;
+            -- LSU
+            EXEC_LSU_EN             : in std_logic;
+            EXEC_LSU_WE             : in std_logic;
             -- CSR
             EXEC_CSR_ID             : in std_logic_vector(11 downto 0);
             EXEC_CSR_OPCODE         : in csr_opcode_t;
@@ -423,16 +428,18 @@ package pkg_lagarisc is
             -- RD
             WB_RD_ID                : out std_logic_vector(4 downto 0);
             WB_RD_WE                : out std_logic;
-            -- ALU
-            WB_ALU_RESULT           : out std_logic_vector(31 downto 0);
-            -- MEM
-            WB_MEM_DOUT             : out std_logic_vector(31 downto 0);
-            WB_MEM_WE               : out std_logic;
+            WB_RD_DATA              : out std_logic_vector(31 downto 0);
             -- CSR
             WB_CSR_ID               : out std_logic_vector(11 downto 0);
             WB_CSR_OPCODE           : out csr_opcode_t;
             -- WB MUX
             WB_WB_MUX               : out mux_wb_src_t;
+
+            -- ==== > WB ====
+            WB_FWD_RD_ID            : in std_logic_vector(4 downto 0);
+            WB_FWD_RD_DATA          : in std_logic_vector(31 downto 0);
+            WB_FWD_RD_FWDABLE       : in std_logic;
+            WB_FWD_RD_VALID         : in std_logic;
 
             -- ==== SUPERVISOR > ====
             -- PC
@@ -469,17 +476,16 @@ package pkg_lagarisc is
             CLK                     : in std_logic;
             RST                     : in std_logic;
 
+            -- ==== Control & command ====
+            MEM_OUT_VALID          : in std_logic;
+
             -- ==== > MEM ====
             -- PC
             MEM_PC_NOT_TAKEN        : in std_logic_vector(31 downto 0);
             -- RD
             MEM_RD_ID               : in std_logic_vector(4 downto 0);
             MEM_RD_WE               : in std_logic;
-            -- ALU
-            MEM_ALU_RESULT          : in std_logic_vector(31 downto 0);
-            -- MEM
-            MEM_MEM_DOUT            : in std_logic_vector(31 downto 0);
-            MEM_MEM_WE              : in std_logic;
+            MEM_RD_DATA             : in std_logic_vector(31 downto 0);
             -- CSR
             MEM_CSR_ID              : in std_logic_vector(11 downto 0);
             MEM_CSR_OPCODE          : in csr_opcode_t;
@@ -489,7 +495,8 @@ package pkg_lagarisc is
             -- ==== DECODE > ====
             DC_RD_ID                : out std_logic_vector(4 downto 0);
             DC_RD_DATA              : out std_logic_vector(31 downto 0);
-            DC_RD_WE                : out std_logic
+            DC_RD_WE                : out std_logic;
+            DC_RD_VALID             : out std_logic
         );
     end component;
 
@@ -560,9 +567,9 @@ package pkg_lagarisc is
             EXEC_ALU_SHAMT          : out std_logic_vector(4 downto 0);
             EXEC_ALU_OP1_MUX        : out mux_alu_op1_t;
             EXEC_ALU_OP2_MUX        : out mux_alu_op2_t;
-            -- MEM
-            EXEC_MEM_EN             : out std_logic;
-            EXEC_MEM_WE             : out std_logic;
+            -- LSU
+            EXEC_LSU_EN             : out std_logic;
+            EXEC_LSU_WE             : out std_logic;
             -- CSR
             EXEC_CSR_ID             : out std_logic_vector(11 downto 0);
             EXEC_CSR_OPCODE         : out csr_opcode_t;
@@ -587,7 +594,8 @@ package pkg_lagarisc is
             -- From write back stage
             WB_RD_ID        : in std_logic_vector(4 downto 0);
             WB_RD_DATA      : in std_logic_vector(31 downto 0);
-            WB_RD_WE        : in std_logic
+            WB_RD_WE        : in std_logic;
+            WB_RD_VALID     : in std_logic
         );
     end component;
 
@@ -640,15 +648,14 @@ package pkg_lagarisc is
             -- ==== > EXEC ====
             -- INST
             EXEC_INST_F3            : in std_logic_vector(2 downto 0);
-            -- MEM
-            EXEC_MEM_ADDR           : in std_logic_vector(31 downto 0);
-            EXEC_MEM_DIN            : in std_logic_vector(31 downto 0);
-            EXEC_MEM_EN             : in std_logic;
-            EXEC_MEM_WE             : in std_logic;
+            -- LSU
+            EXEC_LSU_ADDR           : in std_logic_vector(31 downto 0);
+            EXEC_LSU_DIN            : in std_logic_vector(31 downto 0);
+            EXEC_LSU_EN             : in std_logic;
+            EXEC_LSU_WE             : in std_logic;
 
             -- ==== WB > ====
-            WB_MEM_DOUT             : out std_logic_vector(31 downto 0);
-            WB_MEM_WE               : out std_logic;
+            WB_LSU_DOUT             : out std_logic_vector(31 downto 0);
 
             -- ==== > AXI4L interface > ====
             -- write access
@@ -679,6 +686,9 @@ package pkg_lagarisc is
         port (
             CLK  : in std_logic;
             RST  : in std_logic;
+
+            -- ==== Control & command ====
+            MEM_OUT_VALID            : in std_logic;
 
             -- ==== > WB ====
             MEM_CSR_ID               : in std_logic_vector(11 downto 0);

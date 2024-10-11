@@ -10,6 +10,9 @@ entity lagarisc_csr is
         CLK  : in std_logic;
         RST  : in std_logic;
 
+        -- ==== Control & command ====
+        MEM_OUT_VALID          : in std_logic;
+
         -- ==== > WB ====
         MEM_CSR_ID               : in std_logic_vector(11 downto 0);
         -- INST
@@ -56,9 +59,9 @@ begin
 
     end process;
 
-    P_ASYNC_REG_RDATA: process (MEM_CSR_ID, csr_reg_index, csr_regfile)
+    P_ASYNC_REG_RDATA: process (MEM_OUT_VALID, MEM_CSR_ID, csr_reg_index, csr_regfile)
     begin
-        DC_CSR_WE <= '1';
+        DC_CSR_WE <= MEM_OUT_VALID;
         case MEM_CSR_ID is
             -------------------------------------------
             -- Read-Only CSR
@@ -105,10 +108,12 @@ begin
             if RST = '1' then
                 csr_regfile <= (others => (others => '0'));
             else
-                if csr_reg_index /= 0 then
-                    -- Update CSR for Write/Clear/Set operations
-                    if MEM_CSR_OPCODE /= CSR_OPCODE_READ then
-                        csr_regfile(csr_reg_index)  <= csr_async_wdata;
+                if MEM_OUT_VALID = '1' then
+                    if csr_reg_index /= 0 then
+                        -- Update CSR for Write/Clear/Set operations
+                        if MEM_CSR_OPCODE /= CSR_OPCODE_READ then
+                            csr_regfile(csr_reg_index)  <= csr_async_wdata;
+                        end if;
                     end if;
                 end if;
             end if;

@@ -110,9 +110,6 @@ begin
                             -- By default, an output will be generated
                             alu_out_valid_int <= '1';
 
-
-
-
                             case DC_ALU_OPC is
                                 --------------------------------------------
                                 -- Addition & substraction
@@ -157,7 +154,7 @@ begin
                                     bitshift_reverse    <= '0';
 
                                     alu_busy_int <= '1';
-                                    alu_out_valid_int <= '0';
+                                    alu_out_valid_int <= '0'; -- Start shifting: no output generated until computation done.
                                     alu_fsm <= ST_ALU_SHIFTING;
 
                                 when ALU_OPCODE_SRL =>
@@ -168,7 +165,7 @@ begin
                                     bitshift_reverse    <= '1';
 
                                     alu_busy_int <= '1';
-                                    alu_out_valid_int <= '0';
+                                    alu_out_valid_int <= '0'; -- Start shifting: no output generated until computation done.
                                     alu_fsm <= ST_ALU_SHIFTING;
 
                                 when ALU_OPCODE_SRA =>
@@ -179,7 +176,7 @@ begin
                                     bitshift_reverse    <= '1';
 
                                     alu_busy_int <= '1';
-                                    alu_out_valid_int <= '0';
+                                    alu_out_valid_int <= '0'; -- Start shifting: no output generated until computation done.
                                     alu_fsm <= ST_ALU_SHIFTING;
 
 
