@@ -1,0 +1,18 @@
+#################################################
+# QEMU runner with GDB server (port :3333)
+#################################################
+
+[target.riscv32i-unknown-none-elf]
+runner = """
+    qemu-system-riscv32
+        -machine virt
+        -cpu rv32
+        -nographic
+        -smp 1
+        -m 128M
+        -serial mon:stdio
+        -bios none
+        -device virtio-keyboard-device
+        -gdb tcp::3333 -S
+        -kernel
+"""

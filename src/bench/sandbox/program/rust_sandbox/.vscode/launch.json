@@ -1,0 +1,40 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        // ========================================
+        // == Attach debugger to a running instance
+        // ========================================
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "Attach remote",
+            "executable": "${workspaceRoot}/target/${config:rust_target}/debug/rust_sandbox",
+            "target": ":3333",
+            "remote": true,
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "prettyPrinters",
+            "gdbpath": "riscv64-unknown-elf-gdb"
+        },
+
+        // ========================================
+        // == Launch & attach debugger
+        // ========================================
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "Launch & Debug",
+            "executable": "${workspaceRoot}/target/${config:rust_target}/debug/rust_sandbox",
+            "target": ":3333",
+            "remote": true,
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "prettyPrinters",
+            "gdbpath": "riscv64-unknown-elf-gdb",
+            "preLaunchTask": "qemu gdb (background)",   // Task that launch the program
+            "postDebugTask": "Terminate All Tasks"      // Task that will kill the program, otherwise QEMU will run forever
+        }
+    ]
+}

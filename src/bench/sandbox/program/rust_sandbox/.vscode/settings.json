@@ -1,0 +1,22 @@
+{
+    // ========================================
+    // == User settings
+    // ========================================
+    "rust_target" : "riscv32i-unknown-none-elf",
+
+    // ========================================
+    // == Extra configuration for rust-analyser
+    // ========================================
+
+    // Targeting RISC-V
+    "rust-analyzer.check.allTargets": false,
+    "rust-analyzer.check.extraArgs": [
+        "--target",
+        "${config:rust_target}"
+    ],
+
+    // Runnable will not use GDB
+    "rust-analyzer.runnables.extraArgs" : [
+        "--config", "${workspaceFolder}/.cargo/config_qemu_run.toml"
+    ],
+}
