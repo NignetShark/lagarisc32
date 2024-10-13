@@ -174,6 +174,39 @@ package pkg_lagarisc is
     end component;
 
     -----------------------------------------------------
+    -- FORWARDING UNIT (/!\ purely combinational)
+    -----------------------------------------------------
+    component lagarisc_fwd_unit is
+        port (
+            -- ==== > DECODE ====
+            DECODE_OUT_VALID    : in std_logic;
+            DC_RS1_ID           : in std_logic_vector(4 downto 0);
+            DC_RS2_ID           : in std_logic_vector(4 downto 0);
+            DC_RS1_DATA         : in std_logic_vector(31 downto 0);
+            DC_RS2_DATA         : in std_logic_vector(31 downto 0);
+
+            -- ==== > EXEC ====
+            EXEC_OUT_VALID      : in std_logic;
+            EXEC_RD_ID          : in std_logic_vector(4 downto 0);
+            EXEC_RD_WE          : in std_logic;
+            EXEC_RD_DATA        : in std_logic_vector(31 downto 0);
+            EXEC_LSU_EN         : in std_logic;
+            EXEC_LSU_WE         : in std_logic;
+
+            -- ==== > MEM ====
+            MEM_OUT_VALID       : in std_logic;
+            MEM_RD_ID           : in std_logic_vector(4 downto 0);
+            MEM_RD_WE           : in std_logic;
+            MEM_RD_DATA         : in std_logic_vector(31 downto 0);
+
+            -- ==== EXEC > ====
+            FWD_RS1_DATA        : out std_logic_vector(31 downto 0);
+            FWD_RS2_DATA        : out std_logic_vector(31 downto 0);
+            FWD_RSX_READY       : out std_logic
+        );
+    end component;
+
+    -----------------------------------------------------
     -- STAGES
     -----------------------------------------------------
     component lagarisc_fetch_axi4l is
@@ -323,10 +356,7 @@ package pkg_lagarisc is
             -- INST
             DC_INST_F3              : in std_logic_vector(2 downto 0);
             -- RSX
-            DC_RS1_ID               : in std_logic_vector(4 downto 0);
             DC_RS2_ID               : in std_logic_vector(4 downto 0);
-            DC_RS1_DATA             : in std_logic_vector(31 downto 0);
-            DC_RS2_DATA             : in std_logic_vector(31 downto 0);
             -- RD
             DC_RD_ID                : in std_logic_vector(4 downto 0);
             DC_RD_WE                : in std_logic;
@@ -345,6 +375,11 @@ package pkg_lagarisc is
             -- WB MUX
             DC_WB_MUX               : in mux_wb_src_t;
 
+            -- ==== > FWD UNIT ====
+            FWD_RS1_DATA            : in std_logic_vector(31 downto 0);
+            FWD_RS2_DATA            : in std_logic_vector(31 downto 0);
+            FWD_RSX_READY           : in std_logic;
+
             -- ==== MEM > ====
             -- PC
             MEM_PROGRAM_COUNTER     : out std_logic_vector(31 downto 0);
@@ -359,12 +394,6 @@ package pkg_lagarisc is
             -- RD
             MEM_RD_ID               : out std_logic_vector(4 downto 0);
             MEM_RD_WE               : out std_logic;
-            -- FWD RD
-            MEM_FWD_RD_ID           : in std_logic_vector(4 downto 0);
-            MEM_FWD_RD_DATA         : in std_logic_vector(31 downto 0);
-            MEM_FWD_RD_FWDABLE      : in std_logic;
-            MEM_FWD_RD_VALID        : in std_logic;
-
             -- ALU
             MEM_ALU_RESULT          : out std_logic_vector(31 downto 0);
             -- LSU
@@ -374,13 +403,7 @@ package pkg_lagarisc is
             MEM_CSR_ID              : out std_logic_vector(11 downto 0);
             MEM_CSR_OPCODE          : out csr_opcode_t;
             -- WB MUX
-            MEM_WB_MUX              : out mux_wb_src_t;
-
-            -- ==== > WB ====
-            WB_FWD_RD_ID            : in std_logic_vector(4 downto 0);
-            WB_FWD_RD_DATA          : in std_logic_vector(31 downto 0);
-            WB_FWD_RD_FWDABLE       : in std_logic;
-            WB_FWD_RD_VALID         : in std_logic
+            MEM_WB_MUX              : out mux_wb_src_t
         );
     end component;
 
@@ -436,12 +459,6 @@ package pkg_lagarisc is
             WB_CSR_OPCODE           : out csr_opcode_t;
             -- WB MUX
             WB_WB_MUX               : out mux_wb_src_t;
-
-            -- ==== > WB ====
-            WB_FWD_RD_ID            : in std_logic_vector(4 downto 0);
-            WB_FWD_RD_DATA          : in std_logic_vector(31 downto 0);
-            WB_FWD_RD_FWDABLE       : in std_logic;
-            WB_FWD_RD_VALID         : in std_logic;
 
             -- ==== SUPERVISOR > ====
             -- PC

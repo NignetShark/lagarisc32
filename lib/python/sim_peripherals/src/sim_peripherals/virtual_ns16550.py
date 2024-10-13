@@ -52,12 +52,12 @@ class VirtualNS16550(MemoryInterface):
 
 
     def _write(self, address, data, **kwargs):
-        self.log.info(f"Writing to UART !")
+        self.log.info(f"Writing to UART (addr = {hex(address)}) !")
         if address not in UartRegOffset:
             self.log.warning(f"Unknown access at {hex(address)}.")
             return
 
-        if address == UartRegOffset.RX_TX:
+        if address == UartRegOffset.RX_TX.value:
             if self.reg_space[UartRegOffset.LINE_CTRL] & (1 << 7):
                 pass # DLAB enabled (ignore value)
             else:
@@ -71,11 +71,13 @@ class VirtualNS16550(MemoryInterface):
         if char == '\n':
             self.flush()
         else:
+            self.log.debug(f"Putting char in fifo : '{char}'")
             self.fifo_tx += char
 
     def flush(self):
         self.log.info(self.fifo_tx)
         if self.file:
+            self.log.info(f"Uart: {self.fifo_tx}")
             self.file.write(self.fifo_tx + "\n")
         self.fifo_tx = ""
 

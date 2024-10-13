@@ -30,10 +30,7 @@ entity lagarisc_stage_exec is
         -- INST
         DC_INST_F3              : in std_logic_vector(2 downto 0);
         -- RSX
-        DC_RS1_ID               : in std_logic_vector(4 downto 0);
         DC_RS2_ID               : in std_logic_vector(4 downto 0);
-        DC_RS1_DATA             : in std_logic_vector(31 downto 0);
-        DC_RS2_DATA             : in std_logic_vector(31 downto 0);
         -- RD
         DC_RD_ID                : in std_logic_vector(4 downto 0);
         DC_RD_WE                : in std_logic;
@@ -52,6 +49,11 @@ entity lagarisc_stage_exec is
         -- WB MUX
         DC_WB_MUX               : in mux_wb_src_t;
 
+        -- ==== > FWD UNIT ====
+        FWD_RS1_DATA            : in std_logic_vector(31 downto 0);
+        FWD_RS2_DATA            : in std_logic_vector(31 downto 0);
+        FWD_RSX_READY           : in std_logic;
+
         -- ==== MEM > ====
         -- PC
         MEM_PROGRAM_COUNTER     : out std_logic_vector(31 downto 0);
@@ -66,11 +68,6 @@ entity lagarisc_stage_exec is
         -- RD
         MEM_RD_ID               : out std_logic_vector(4 downto 0);
         MEM_RD_WE               : out std_logic;
-        -- FWD RD
-        MEM_FWD_RD_ID           : in std_logic_vector(4 downto 0);
-        MEM_FWD_RD_DATA         : in std_logic_vector(31 downto 0);
-        MEM_FWD_RD_FWDABLE      : in std_logic;
-        MEM_FWD_RD_VALID        : in std_logic;
         -- ALU
         MEM_ALU_RESULT          : out std_logic_vector(31 downto 0);
         -- LSU
@@ -80,13 +77,7 @@ entity lagarisc_stage_exec is
         MEM_CSR_ID              : out std_logic_vector(11 downto 0);
         MEM_CSR_OPCODE          : out csr_opcode_t;
         -- WB MUX
-        MEM_WB_MUX              : out mux_wb_src_t;
-
-        -- ==== > WB ====
-        WB_FWD_RD_ID            : in std_logic_vector(4 downto 0);
-        WB_FWD_RD_DATA          : in std_logic_vector(31 downto 0);
-        WB_FWD_RD_FWDABLE       : in std_logic;
-        WB_FWD_RD_VALID         : in std_logic
+        MEM_WB_MUX              : out mux_wb_src_t
     );
 end entity;
 
@@ -94,13 +85,8 @@ architecture rtl of lagarisc_stage_exec is
     signal exec_in_ready_int : std_logic;
     signal exec_out_valid_int : std_logic;
     signal alu_in_ready : std_logic;
-    signal fwd_rs1_data : std_logic_vector(31 downto 0);
-    signal fwd_rs2_data : std_logic_vector(31 downto 0);
-
-    signal fwd_rs1_available : std_logic;
-    signal fwd_rs2_available : std_logic;
 begin
-    exec_in_ready_int <= alu_in_ready and fwd_rs1_available and fwd_rs2_available;
+    exec_in_ready_int <= alu_in_ready and FWD_RSX_READY;
     EXEC_IN_READY <= exec_in_ready_int;
     EXEC_OUT_VALID <= exec_out_valid_int;
 
@@ -132,60 +118,6 @@ begin
             -- ==== MEM > ====
             MEM_ALU_RESULT          => MEM_ALU_RESULT
         );
-
-    -------------------------------------
-    -- Forwarding process
-    -- Use result from upper stages during data hazards
-    -------------------------------------
-    P_ASYNC_FORWARDING_UNIT : process (
-        DC_RS1_DATA,
-        DC_RS2_DATA,
-        DC_RS1_ID,
-        DC_RS2_ID,
-        MEM_FWD_RD_ID,
-        MEM_FWD_RD_DATA,
-        MEM_FWD_RD_VALID,
-        MEM_FWD_RD_FWDABLE,
-        WB_FWD_RD_ID,
-        WB_FWD_RD_DATA,
-        WB_FWD_RD_VALID,
-        WB_FWD_RD_FWDABLE)
-    begin
-        fwd_rs1_available <= '1';
-        fwd_rs2_available <= '1';
-
-        fwd_rs1_data <= DC_RS1_DATA;
-        fwd_rs2_data <= DC_RS2_DATA;
-
-        -- RS1
-        if (unsigned(DC_RS1_ID) /= 0) then
-            -- Per priority
-            if(DC_RS1_ID = MEM_FWD_RD_ID) and (MEM_FWD_RD_FWDABLE = '1') then
-                -- RS1 : Use data from memory stage
-                fwd_rs1_data        <= MEM_FWD_RD_DATA;
-                fwd_rs1_available   <= MEM_FWD_RD_VALID;    -- Exec must wait upper stages to access to RS data
-
-            elsif(DC_RS1_ID = WB_FWD_RD_ID) and (WB_FWD_RD_FWDABLE = '1')  then
-                -- RS1 : Use data from write-back stage
-                fwd_rs1_data        <= WB_FWD_RD_DATA;
-                fwd_rs1_available   <= WB_FWD_RD_VALID;     -- Exec must wait upper stages to access to RS data
-            end if;
-        end if;
-
-        -- RS2
-        if (unsigned(DC_RS2_ID) /= 0) then
-            -- Per priority
-            if(DC_RS2_ID = MEM_FWD_RD_ID) and (MEM_FWD_RD_FWDABLE = '1') then
-                -- RS2 : Use data from memory stage
-                fwd_rs2_data        <= MEM_FWD_RD_DATA;
-                fwd_rs2_available   <= MEM_FWD_RD_VALID;    -- Exec must wait upper stages to access to RS data
-            elsif(DC_RS2_ID = WB_FWD_RD_ID) and (WB_FWD_RD_FWDABLE = '1')  then
-                -- RS2 : Use data from write-back stage
-                fwd_rs2_data        <= WB_FWD_RD_DATA;
-                fwd_rs2_available   <= WB_FWD_RD_VALID;     -- Exec must wait upper stages to access to RS data
-            end if;
-        end if;
-    end process;
 
     ----------------------------------------
     -- Branching process

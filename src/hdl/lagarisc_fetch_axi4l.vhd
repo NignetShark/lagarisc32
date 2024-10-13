@@ -67,7 +67,9 @@ architecture rtl of lagarisc_fetch_axi4l is
 
 begin
     -- Control & cmd
-    fetch_out_valid_int <= AXI_RVALID and (not fifo_is_empty) and flush_cnt_is_zero;
+    fetch_out_valid_int <= AXI_RVALID and               -- Valid when AXI data fetched
+                            (not fifo_is_empty) and     -- Fifo is not empty
+                            flush_cnt_is_zero;
 
     -- Fifo push is available if :
     -- * fifo pop is asserted (a new place will be available)
@@ -148,10 +150,18 @@ begin
 
                     fifo_push       <= '1';
 
+                    -- Can't handle branching request yet.
                 elsif SUP_BRANCH_TAKEN = '1' then
                     if branching_requested = '0' then
                         branching_requested <= '1';
-                        flush_cnt           <= fifo_usage_cnt; -- Start flushing requested addresses
+
+                         -- Start flushing pending addresses
+                        if fifo_push = '1' then
+                            flush_cnt   <= fifo_usage_cnt + 1;
+                        else
+                            flush_cnt   <= fifo_usage_cnt;
+                        end if;
+
                         next_pc             <= SUP_PC_TAKEN;
                     end if;
                 end if;

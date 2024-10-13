@@ -18,7 +18,7 @@ entity lagarisc_stage_mem is
         EXEC_OUT_VALID          : in std_logic;
         MEM_IN_READY            : out std_logic;
         MEM_OUT_VALID           : out std_logic;
-        -- WB stage is always read
+        -- Note: WB stage is always read
 
         -- ==== > EXEC ====
         -- PC
@@ -57,12 +57,6 @@ entity lagarisc_stage_mem is
         WB_CSR_OPCODE           : out csr_opcode_t;
         -- WB MUX
         WB_WB_MUX               : out mux_wb_src_t;
-
-        -- ==== > WB ====
-        WB_FWD_RD_ID            : in std_logic_vector(4 downto 0);
-        WB_FWD_RD_DATA          : in std_logic_vector(31 downto 0);
-        WB_FWD_RD_FWDABLE       : in std_logic;
-        WB_FWD_RD_VALID         : in std_logic;
 
         -- ==== SUPERVISOR > ====
         -- PC
@@ -106,10 +100,6 @@ architecture rtl of lagarisc_stage_mem is
     signal mem_out_valid_int    : std_logic;
     signal exec_wb_mux_reg      : mux_wb_src_t;
 
-    -- Forwarding
-    signal fwd_rs2_data         : std_logic_vector(31 downto 0);
-    signal fwd_rs2_available    : std_logic;
-
     -- Data out
     signal wb_alu_result    : std_logic_vector(31 downto 0);
     signal wb_lsu_dout      : std_logic_vector(31 downto 0);
@@ -118,8 +108,7 @@ begin
 
     -- Controls & cmds
     mem_in_ready_int    <= lsu_in_ready_int and         -- Memory is ready when LSU is ready
-                                (not STALL) and         -- Stage must not be stalled by supervisor
-                                fwd_rs2_available;      -- RS2 must be available in case of a forwarding
+                                (not STALL);            -- Stage must not be stalled by supervisor
 
     mem_out_valid_int   <= lsu_out_valid_int when exec_wb_mux_reg = MUX_WB_SRC_LSU else in_handshake_reg; -- when mem_target = MEM_TARGET_FWD
 
@@ -149,7 +138,7 @@ begin
             EXEC_INST_F3            => EXEC_INST_F3,    -- Used for byte/half/word transations
             -- LSU
             EXEC_LSU_ADDR           => EXEC_ALU_RESULT, -- Memory address is computed from ALU
-            EXEC_LSU_DIN            => fwd_rs2_data,    -- RS2 is used as data in.
+            EXEC_LSU_DIN            => EXEC_RS2_DATA,   -- RS2 is used as data in.
             EXEC_LSU_EN             => EXEC_LSU_EN,
             EXEC_LSU_WE             => EXEC_LSU_WE,
 
@@ -179,31 +168,6 @@ begin
             AXI_RDATA               => AXI_RDATA,
             AXI_RESP                => AXI_RESP
         );
-
-    -------------------------------------
-    -- Forwarding process
-    -- Use result from upper stages during data hazards
-    -------------------------------------
-    P_ASYNC_FORWARDING_UNIT : process (
-        EXEC_RS2_ID,
-        EXEC_RS2_DATA,
-        WB_FWD_RD_ID,
-        WB_FWD_RD_DATA,
-        WB_FWD_RD_FWDABLE,
-        WB_FWD_RD_VALID)
-    begin
-        fwd_rs2_available   <= '1';
-        fwd_rs2_data        <= EXEC_RS2_DATA;
-
-        if (unsigned(EXEC_RS2_ID) /= 0) then
-            if(EXEC_RS2_ID = WB_FWD_RD_ID) and (WB_FWD_RD_FWDABLE = '1') then
-                -- RS2 : Use data from write back stage
-                fwd_rs2_data        <= WB_FWD_RD_DATA;
-                fwd_rs2_available   <= WB_FWD_RD_VALID; -- Mem must wait upper stages to access to RS data
-            end if;
-        end if;
-    end process;
-
 
     process (CLK)
     begin

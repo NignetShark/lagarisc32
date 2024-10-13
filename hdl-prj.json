@@ -2,9 +2,10 @@
     "options": {
         "ghdl_analysis": [
             "--std=08",
-            "--workdir=work",
             "--ieee=synopsys",
-            "-fexplicit"
+            "-fexplicit",
+            "--warn-unused",
+            "--warn-error"
         ]
     },
     "files": [
@@ -20,6 +21,7 @@
         { "file": "src/hdl/lagarisc_stage_exec.vhd",        "language": "vhdl", "library":"lagarisc" },
         { "file": "src/hdl/lagarisc_stage_mem.vhd",         "language": "vhdl", "library":"lagarisc" },
         { "file": "src/hdl/lagarisc_stage_wb.vhd",          "language": "vhdl", "library":"lagarisc" },
-        { "file": "src/hdl/lagarisc_supervisor.vhd",        "language": "vhdl", "library":"lagarisc" }
+        { "file": "src/hdl/lagarisc_supervisor.vhd",        "language": "vhdl", "library":"lagarisc" },
+        { "file": "src/hdl/lagarisc_fwd_unit.vhd",          "language": "vhdl", "library":"lagarisc" }
     ]
 }

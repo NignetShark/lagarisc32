@@ -76,6 +76,10 @@ architecture rtl of lagarisc_core is
     signal dc_exec_program_counter  : std_logic_vector(31 downto 0);
     signal dc_inst_data             : std_logic_vector(31 downto 0);
 
+    signal fwd_rs1_data             : std_logic_vector(31 downto 0);
+    signal fwd_rs2_data             : std_logic_vector(31 downto 0);
+    signal fwd_rsx_ready            : std_logic;
+
     signal exec_program_counter     : std_logic_vector(31 downto 0);
     signal exec_branch_op           : branch_op_t;
     signal exec_branch_imm          : std_logic_vector(31 downto 0);
@@ -160,6 +164,33 @@ begin
             -- ==== Stall ====
             MEM_STALL           => mem_stall
         );
+
+    inst_fwd_unit : lagarisc_fwd_unit
+        port map (
+            -- ==== > DECODE ====
+            DECODE_OUT_VALID    => decode_out_valid,
+            DC_RS1_ID           => exec_rs1_id,
+            DC_RS2_ID           => exec_rs2_id,
+            DC_RS1_DATA         => exec_rs1_data,
+            DC_RS2_DATA         => exec_rs2_data,
+            -- ==== > EXEC ====
+            EXEC_OUT_VALID      => exec_out_valid,
+            EXEC_RD_ID          => mem_rd_id,
+            EXEC_RD_WE          => mem_rd_we,
+            EXEC_RD_DATA        => mem_alu_result,
+            EXEC_LSU_EN         => mem_lsu_en,
+            EXEC_LSU_WE         => mem_lsu_we,
+            -- ==== > MEM ====
+            MEM_OUT_VALID       => mem_out_valid,
+            MEM_RD_ID           => wb_rd_id,
+            MEM_RD_WE           => wb_rd_we,
+            MEM_RD_DATA         => wb_rd_data,
+            -- ==== EXEC > ====
+            FWD_RS1_DATA        => fwd_rs1_data,
+            FWD_RS2_DATA        => fwd_rs2_data,
+            FWD_RSX_READY       => fwd_rsx_ready
+        );
+
 
     inst_fetch_axi4l : lagarisc_fetch_axi4l
         generic map (
@@ -276,10 +307,7 @@ begin
             -- INST
             DC_INST_F3              => exec_inst_f3,
             -- RSX
-            DC_RS1_ID               => exec_rs1_id,
             DC_RS2_ID               => exec_rs2_id,
-            DC_RS1_DATA             => exec_rs1_data,
-            DC_RS2_DATA             => exec_rs2_data,
             -- RD
             DC_RD_ID                => exec_rd_id,
             DC_RD_WE                => exec_rd_we,
@@ -298,6 +326,11 @@ begin
             -- WB
             DC_WB_MUX               => exec_wb_mux,
 
+            -- ==== > FWD UNIT ====
+            FWD_RS1_DATA            => fwd_rs1_data,
+            FWD_RS2_DATA            => fwd_rs2_data,
+            FWD_RSX_READY           => fwd_rsx_ready,
+
             -- ==== MEM > ====
             -- PC
             MEM_PROGRAM_COUNTER     => mem_program_counter,
@@ -312,11 +345,6 @@ begin
             -- RD
             MEM_RD_ID               => mem_rd_id,
             MEM_RD_WE               => mem_rd_we,
-            -- FWD RD
-            MEM_FWD_RD_ID           => mem_rd_id,
-            MEM_FWD_RD_DATA         => mem_alu_result,
-            MEM_FWD_RD_FWDABLE      => mem_rd_we,
-            MEM_FWD_RD_VALID        => exec_out_valid,
             -- ALU
             MEM_ALU_RESULT          => mem_alu_result,
             -- LSU
@@ -326,13 +354,7 @@ begin
             MEM_CSR_ID              => mem_csr_id,
             MEM_CSR_OPCODE          => mem_csr_opcode,
             -- WB MUX
-            MEM_WB_MUX              => mem_wb_mux,
-
-            -- ==== > WB ====
-            WB_FWD_RD_ID            => dc_rd_id,
-            WB_FWD_RD_DATA          => dc_rd_data,
-            WB_FWD_RD_FWDABLE       => dc_rd_we,
-            WB_FWD_RD_VALID         => dc_rd_valid
+            MEM_WB_MUX              => mem_wb_mux
         );
 
     inst_stage_mem : lagarisc_stage_mem
@@ -386,12 +408,6 @@ begin
             WB_CSR_OPCODE           => wb_csr_opcode,
             -- WB MUX
             WB_WB_MUX               => wb_wb_mux,
-
-            -- ==== > WB ====
-            WB_FWD_RD_ID            => dc_rd_id,
-            WB_FWD_RD_DATA          => dc_rd_data,
-            WB_FWD_RD_FWDABLE       => dc_rd_we,
-            WB_FWD_RD_VALID         => dc_rd_valid,
 
             -- ==== SUP > ====
             -- PC
