@@ -54,6 +54,7 @@ entity lagarisc_stage_exec is
 
         -- ==== MEM > ====
         -- PC
+        MEM_PROGRAM_COUNTER     : out std_logic_vector(31 downto 0);
         MEM_PC_TAKEN            : out std_logic_vector(31 downto 0);
         MEM_PC_NOT_TAKEN        : out std_logic_vector(31 downto 0); -- PC + 4
         MEM_BRANCH_OP           : out branch_op_t;
@@ -225,6 +226,7 @@ begin
         if rising_edge(CLK) then
             if RST = '1' then
                 -- PC
+                MEM_PROGRAM_COUNTER <= (others => '-');
                 MEM_BRANCH_OP   <= BRANCH_NOP;
                 -- INST
                 MEM_INST_F3     <= (others => '-');
@@ -252,22 +254,23 @@ begin
 
                 if (exec_in_ready_int = '1') and (DECODE_OUT_VALID = '1')  then
                     -- PC
-                    MEM_BRANCH_OP   <= DC_BRANCH_OP;
+                    MEM_PROGRAM_COUNTER <= DC_PROGRAM_COUNTER;
+                    MEM_BRANCH_OP       <= DC_BRANCH_OP;
                     -- INST
-                    MEM_INST_F3     <= DC_INST_F3;
+                    MEM_INST_F3         <= DC_INST_F3;
                     -- RD
-                    MEM_RD_ID       <= DC_RD_ID;
-                    MEM_RD_WE       <= DC_RD_WE;
+                    MEM_RD_ID           <= DC_RD_ID;
+                    MEM_RD_WE           <= DC_RD_WE;
                     -- MEM
-                    MEM_RS2_ID      <= DC_RS2_ID;
-                    MEM_RS2_DATA    <= fwd_rs2_data;
-                    MEM_LSU_EN      <= DC_LSU_EN;
-                    MEM_LSU_WE      <= DC_LSU_WE;
+                    MEM_RS2_ID          <= DC_RS2_ID;
+                    MEM_RS2_DATA        <= fwd_rs2_data;
+                    MEM_LSU_EN          <= DC_LSU_EN;
+                    MEM_LSU_WE          <= DC_LSU_WE;
                     -- CSR
-                    MEM_CSR_ID      <= DC_CSR_ID;
-                    MEM_CSR_OPCODE  <= DC_CSR_OPCODE;
+                    MEM_CSR_ID          <= DC_CSR_ID;
+                    MEM_CSR_OPCODE      <= DC_CSR_OPCODE;
                     -- WB MUX
-                    MEM_WB_MUX      <= DC_WB_MUX;
+                    MEM_WB_MUX          <= DC_WB_MUX;
                 end if;
 
                 if FLUSH = '1' then

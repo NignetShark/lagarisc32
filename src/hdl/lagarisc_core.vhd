@@ -14,6 +14,10 @@ entity lagarisc_core is
         CLK                         : in std_logic;
         RST                         : in std_logic;
 
+        -- ==== Trace (debugging) > ====
+        TRC_PROGRAM_COUNTER         : out std_logic_vector(31 downto 0);
+        TRC_VALID                   : out std_logic;
+
         -- ==== > Instruction BRAM interface > ====
         INST_AXI_ARVALID            : out std_logic;
         INST_AXI_ARREADY            : in  std_logic;
@@ -94,6 +98,7 @@ architecture rtl of lagarisc_core is
     signal exec_csr_opcode          : csr_opcode_t;
     signal exec_wb_mux              : mux_wb_src_t;
 
+    signal mem_program_counter      : std_logic_vector(31 downto 0);
     signal mem_pc_taken             : std_logic_vector(31 downto 0);
     signal mem_pc_not_taken         : std_logic_vector(31 downto 0);
     signal mem_branch_op            : branch_op_t;
@@ -109,7 +114,7 @@ architecture rtl of lagarisc_core is
     signal mem_csr_opcode           : csr_opcode_t;
     signal mem_wb_mux               : mux_wb_src_t;
 
-    signal wb_pc_not_taken          : std_logic_vector(31 downto 0);
+    signal wb_program_counter       : std_logic_vector(31 downto 0);
     signal wb_rd_id                 : std_logic_vector(4 downto 0);
     signal wb_rd_we                 : std_logic;
     signal wb_rd_data               : std_logic_vector(31 downto 0);
@@ -125,6 +130,9 @@ architecture rtl of lagarisc_core is
     signal sup_branch_taken         : std_logic;
     signal sup_pc_taken             : std_logic_vector(31 downto 0);
 begin
+
+    TRC_PROGRAM_COUNTER <= wb_program_counter;
+    TRC_VALID <= mem_out_valid;
 
     inst_supervisor : lagarisc_supervisor
         generic map (
@@ -292,6 +300,7 @@ begin
 
             -- ==== MEM > ====
             -- PC
+            MEM_PROGRAM_COUNTER     => mem_program_counter,
             MEM_PC_TAKEN            => mem_pc_taken,
             MEM_PC_NOT_TAKEN        => mem_pc_not_taken,
             MEM_BRANCH_OP           => mem_branch_op,
@@ -342,6 +351,7 @@ begin
 
             -- ==== > EXEC ====
             -- PC
+            EXEC_PROGRAM_COUNTER    => mem_program_counter,
             EXEC_PC_TAKEN           => mem_pc_taken,
             EXEC_PC_NOT_TAKEN       => mem_pc_not_taken,
             EXEC_BRANCH_OP          => mem_branch_op,
@@ -366,7 +376,7 @@ begin
 
             -- ==== WB > ====
             -- PC
-            WB_PC_NOT_TAKEN         => wb_pc_not_taken,
+            WB_PROGRAM_COUNTER      => wb_program_counter,
             -- RD
             WB_RD_ID                => wb_rd_id,
             WB_RD_WE                => wb_rd_we,
@@ -421,8 +431,6 @@ begin
             MEM_OUT_VALID       => mem_out_valid,
 
             -- ==== > MEM ====
-            -- PC
-            MEM_PC_NOT_TAKEN    => wb_pc_not_taken,
             -- RD
             MEM_RD_ID           => wb_rd_id,
             MEM_RD_WE           => wb_rd_we,

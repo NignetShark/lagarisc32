@@ -22,6 +22,7 @@ entity lagarisc_stage_mem is
 
         -- ==== > EXEC ====
         -- PC
+        EXEC_PROGRAM_COUNTER    : in std_logic_vector(31 downto 0);
         EXEC_PC_TAKEN           : in std_logic_vector(31 downto 0);
         EXEC_PC_NOT_TAKEN       : in std_logic_vector(31 downto 0); -- PC + 4
         EXEC_BRANCH_OP          : in branch_op_t;
@@ -46,7 +47,7 @@ entity lagarisc_stage_mem is
 
         -- ==== WB > ====
         -- PC
-        WB_PC_NOT_TAKEN         : out std_logic_vector(31 downto 0);
+        WB_PROGRAM_COUNTER      : out std_logic_vector(31 downto 0);
         -- RD
         WB_RD_ID                : out std_logic_vector(4 downto 0);
         WB_RD_WE                : out std_logic;
@@ -214,7 +215,7 @@ begin
                 -- PC
                 SUP_BRANCH_TAKEN        <= '0';
                 SUP_PC_TAKEN            <= (others => '-');
-                WB_PC_NOT_TAKEN         <= (others => '-');
+                WB_PROGRAM_COUNTER      <= (others => '-');
                 -- RD
                 WB_RD_ID                <= (others => '-');
                 WB_RD_WE                <= '0';
@@ -250,6 +251,8 @@ begin
                         -------------------------------------------------
                         -- Register forwarding
                         -------------------------------------------------
+                        -- PC
+                        WB_PROGRAM_COUNTER      <= EXEC_PROGRAM_COUNTER;
                         -- RD
                         WB_RD_ID                <= EXEC_RD_ID;
                         WB_RD_WE                <= EXEC_RD_WE;          -- Note : RD_WE is not used by WB stage when WB_MUX = MUX_WB_SRC_MEM
@@ -264,7 +267,6 @@ begin
                         -------------------------------------------------
                         -- PC : Branch evaluation
                         -------------------------------------------------
-                        WB_PC_NOT_TAKEN         <= EXEC_PC_NOT_TAKEN;
                         SUP_PC_TAKEN            <= EXEC_PC_TAKEN;
 
                         case EXEC_BRANCH_OP is

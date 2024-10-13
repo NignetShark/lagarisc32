@@ -14,8 +14,6 @@ entity lagarisc_stage_wb is
         MEM_OUT_VALID          : in std_logic;
 
         -- ==== > MEM ====
-        -- PC
-        MEM_PC_NOT_TAKEN        : in std_logic_vector(31 downto 0);
         -- RD
         MEM_RD_ID               : in std_logic_vector(4 downto 0);
         MEM_RD_WE               : in std_logic;

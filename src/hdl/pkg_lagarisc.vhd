@@ -347,6 +347,7 @@ package pkg_lagarisc is
 
             -- ==== MEM > ====
             -- PC
+            MEM_PROGRAM_COUNTER     : out std_logic_vector(31 downto 0);
             MEM_PC_TAKEN            : out std_logic_vector(31 downto 0);
             MEM_PC_NOT_TAKEN        : out std_logic_vector(31 downto 0); -- PC + 4
             MEM_BRANCH_OP           : out branch_op_t;
@@ -400,6 +401,7 @@ package pkg_lagarisc is
 
             -- ==== > EXEC ====
             -- PC
+            EXEC_PROGRAM_COUNTER    : in std_logic_vector(31 downto 0);
             EXEC_PC_TAKEN           : in std_logic_vector(31 downto 0);
             EXEC_PC_NOT_TAKEN       : in std_logic_vector(31 downto 0); -- PC + 4
             EXEC_BRANCH_OP          : in branch_op_t;
@@ -424,7 +426,7 @@ package pkg_lagarisc is
 
             -- ==== WB > ====
             -- PC
-            WB_PC_NOT_TAKEN         : out std_logic_vector(31 downto 0);
+            WB_PROGRAM_COUNTER      : out std_logic_vector(31 downto 0);
             -- RD
             WB_RD_ID                : out std_logic_vector(4 downto 0);
             WB_RD_WE                : out std_logic;
@@ -480,8 +482,6 @@ package pkg_lagarisc is
             MEM_OUT_VALID          : in std_logic;
 
             -- ==== > MEM ====
-            -- PC
-            MEM_PC_NOT_TAKEN        : in std_logic_vector(31 downto 0);
             -- RD
             MEM_RD_ID               : in std_logic_vector(4 downto 0);
             MEM_RD_WE               : in std_logic;

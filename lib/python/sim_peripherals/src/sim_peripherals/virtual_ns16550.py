@@ -52,6 +52,7 @@ class VirtualNS16550(MemoryInterface):
 
 
     def _write(self, address, data, **kwargs):
+        self.log.info(f"Writing to UART !")
         if address not in UartRegOffset:
             self.log.warning(f"Unknown access at {hex(address)}.")
             return
