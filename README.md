@@ -1,5 +1,5 @@
 # LagaRISC32
-LagaRISC32 is a class of **5-stage pipeline** core written in VHDL. The main purpose of this project is to target a **FPGA implementation**. Currently the CPU support only **RV32I** with **AXI4-Lite** interface.
+LagaRISC32 is a class of **5-stage pipelined** core written in VHDL. The main purpose of this project is to target a **FPGA implementation**. Currently the CPU support only **RV32I** with **AXI4-Lite** interface.
 
 ## Ressources
 |Target                      | LUT  | FF   | F test |
@@ -20,3 +20,4 @@ The current CocoTB settings use ModelSim as the main simulator but it should be 
 * CSR not yet implemented (in progress in order to support interruptions).
 * FENCE instruction is not supported.
 * Privileged execution is not supported (no user/supervisor/hypervisor mode).
+* LSU load & store could be improved to reduce latency of 1 cycle.
